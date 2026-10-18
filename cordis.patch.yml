@@ -1,0 +1,6 @@
+# Pure insert, no config: the host's hot-mount path only accepts a plain
+# insert, and this plugin reads its own settings from the environment and
+# from <dshHome>/workbuddy-suite/connectors.json instead of from the patch.
+- insert:
+    - id: dsh-workbuddy-suite
+      name: 'dsh-workbuddy-suite'

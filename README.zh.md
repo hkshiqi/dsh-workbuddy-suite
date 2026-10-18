@@ -36,7 +36,23 @@ cd "$DSH_HOME/profiles/<profile>"
 pnpm install
 ```
 
-面板位置：**设置 → WorkBuddy 生态**；侧栏底部也有一个入口按钮。命令行里可用 `/workbuddy experts|skills|connectors` 列清单。
+命令行里可用 `/workbuddy experts|skills|connectors` 列清单。
+
+### 本地开发：让改动立刻生效（junction）
+
+pnpm 对 `file:` 依赖是**硬拷贝**，改源码不会进 profile。开发时把 profile 里的那份换成目录联接，之后改源码刷新页面即生效：
+
+```powershell
+$dst = "$env:USERPROFILE\.dsh\profiles\<profile>\node_modules\dsh-workbuddy-suite"
+Remove-Item -Recurse -Force $dst
+cmd /c mklink /J "$dst" "E:\path\to\dsh-workbuddy-suite"
+```
+
+宿主半边的改动仍需重启 DSH（或用插件市场里的停用/启用触发 bundle patch 热挂载）；客户端半边刷新浏览器即可。
+
+### 面板位置
+
+侧栏底部的 **◈ WorkBuddy 专家·技能·连接器** 按钮会打开一个整屏浮层面板（Esc / 点遮罩关闭）；设置页里也注册了同一份内容，位置是 **设置 → WorkBuddy 生态**。
 
 ## 数据从哪来、写到哪去
 
@@ -87,6 +103,9 @@ test/smoke.mjs     冒烟测试（含一个 fixture MCP 服务）
 
 ```bash
 node test/smoke.mjs    # 扫描真实目录 + 起一个 fixture MCP 服务跑完整往返
+node test/routes.mjs   # HTTP 接口与同源防护（不发真实请求）
+node test/client.mjs   # 客户端 bundle 按 ModuleLoader 协议加载并渲染
+node test/entry.mjs    # 宿主入口注册路由与 /workbuddy 命令
 ```
 
 测试只写临时目录，不会改动你的专家、技能或连接器。

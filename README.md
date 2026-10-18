@@ -29,7 +29,24 @@ Add the package and the bundle to your DSH profile:
 cd "$DSH_HOME/profiles/<profile>" && pnpm install
 ```
 
-Then restart the DSH host. The panel appears under **Settings -> WorkBuddy ecosystem**, with a matching button in the sidebar footer. `/workbuddy experts|skills|connectors` lists the catalogs from the command line.
+Then restart the DSH host. `/workbuddy experts|skills|connectors` lists the catalogs from the command line.
+
+
+### Local development: make edits take effect immediately (junction)
+
+pnpm installs `file:` dependencies as a **hard copy**, so source edits never reach the profile. While developing, replace that copy with a directory junction - edits then apply on refresh:
+
+```powershell
+$dst = "$env:USERPROFILE\.dsh\profiles\<profile>\node_modules\dsh-workbuddy-suite"
+Remove-Item -Recurse -Force $dst
+cmd /c mklink /J "$dst" "E:\path\to\dsh-workbuddy-suite"
+```
+
+Host-half edits still need a DSH restart (or a disable/enable round in the plugin market, which hot-mounts the pure-insert bundle patch); client-half edits apply on a browser refresh.
+
+### Where the panel lives
+
+The **◈ WorkBuddy experts, skills, connectors** button in the sidebar footer opens a full-screen overlay (Esc or a click on the mask closes it). The same content is also registered as a `settings.section` under **Settings -> WorkBuddy ecosystem**.
 
 ## Where data comes from and where it goes
 
@@ -80,6 +97,9 @@ test/smoke.mjs     smoke test (includes a fixture MCP server)
 
 ```bash
 node test/smoke.mjs    # scans real roots and runs a full MCP round-trip
+node test/routes.mjs   # HTTP surface and same-origin fence
+node test/client.mjs   # the client bundle loaded and rendered per the ModuleLoader protocol
+node test/entry.mjs    # host entry: route mount and the /workbuddy command
 ```
 
 The test writes only to a temp directory; it never touches your experts, skills or connectors.

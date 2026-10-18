@@ -263,6 +263,10 @@ window.__ModuleLoader__.load({
       '.wbs-dd-opt{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-size:12.5px;text-align:left;padding:6px 9px;border-radius:6px;cursor:pointer}',
       '.wbs-dd-opt:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.14))}',
       '.wbs-dd-opt[data-on="1"]{font-weight:600}',
+      '.wbs-shell-mask{position:fixed;inset:0;z-index:58;display:flex;align-items:stretch;justify-content:center;background:rgba(0,0,0,.34);backdrop-filter:blur(2px);padding:min(6vh,56px) min(6vw,72px)}',
+      '.wbs-shell{width:min(1120px,100%);display:flex;flex-direction:column;border-radius:18px;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.24));box-shadow:0 32px 80px -24px rgba(0,0,0,.5);overflow:hidden}',
+      '.wbs-shell-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.18))}',
+      '.wbs-shell-body{padding:16px;overflow:auto}',
     ].join('')
 
     function ensureStyle() {
@@ -938,8 +942,52 @@ window.__ModuleLoader__.load({
           : null)
     }
 
-    /* ---------- registration ---------- */
+    /* ---------- panel visibility store ---------- */
 
+    var panelStore = { open: false, listeners: [] }
+
+    function setPanelOpen(next) {
+      panelStore.open = next === true
+      for (var i = 0; i < panelStore.listeners.length; i += 1) {
+        try { panelStore.listeners[i](panelStore.open) } catch (error) { void error }
+      }
+    }
+
+    function usePanelOpen() {
+      var state = useState(panelStore.open)
+      useEffect(function () {
+        var listener = function (value) { state[1](value) }
+        panelStore.listeners.push(listener)
+        listener(panelStore.open)
+        return function () {
+          var index = panelStore.listeners.indexOf(listener)
+          if (index >= 0) panelStore.listeners.splice(index, 1)
+        }
+      }, [])
+      return state[0]
+    }
+
+    function SuiteOverlay() {
+      var open = usePanelOpen()
+      useEffect(function () {
+        if (!open) return undefined
+        function onKey(event) { if (event.key === 'Escape') setPanelOpen(false) }
+        document.addEventListener('keydown', onKey)
+        return function () { document.removeEventListener('keydown', onKey) }
+      }, [open])
+      if (!open) return null
+      return h('div', { className: 'wbs-shell-mask', onMouseDown: function (event) {
+        if (event.target === event.currentTarget) setPanelOpen(false)
+      } },
+        h('div', { className: 'wbs-shell' },
+          h('div', { className: 'wbs-shell-head' },
+            h('div', { className: 'wbs-card-name' }, '◈ ' + t('nav')),
+            h('div', { className: 'wbs-grow' }),
+            h(Btn, { size: 'sm', onClick: function () { setPanelOpen(false) } }, t('close'))),
+          h('div', { className: 'wbs-shell-body' }, h(SuiteRoot))))
+    }
+
+    /* ---------- registration ---------- */
     function apply(ctx) {
       var disposers = []
       function collect(disposer) {
@@ -972,13 +1020,7 @@ window.__ModuleLoader__.load({
       }
 
       function openPanel() {
-        try {
-          if (typeof window !== 'undefined' && window.__dshOpenSettings !== undefined) {
-            window.__dshOpenSettings('workbuddy-suite')
-          }
-        } catch (error) {
-          ctx.logger?.warn?.('dsh-workbuddy-suite: cannot open settings', error)
-        }
+        setPanelOpen(!panelStore.open)
       }
 
       collect(ctx.slots.inject('settings.section', function () {
@@ -1008,6 +1050,15 @@ window.__ModuleLoader__.load({
             onClick: openPanel,
           }, '◈ ' + t('nav'))
         })
+      }))
+
+      collect(ctx.slots.inject('shell.overlay', function () {
+        return ctx.slots.register({
+          name: 'shell.overlay',
+          id: 'workbuddy-suite-panel',
+          order: 40,
+          locale: NS,
+        }, SuiteOverlay)
       }))
 
       collect(ensureStyle())

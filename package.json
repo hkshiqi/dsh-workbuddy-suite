@@ -54,5 +54,12 @@
       ],
       "platform": "web"
     }
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs && node test/routes.mjs && node test/client.mjs && node test/entry.mjs",
+    "smoke": "node test/smoke.mjs",
+    "test:routes": "node test/routes.mjs",
+    "test:client": "node test/client.mjs",
+    "test:entry": "node test/entry.mjs"
   }
 }

@@ -15,6 +15,30 @@ import { scanSkills, readSkillDetail, setSkillFlags, importSkill, removeSkill, c
 
 const MAX_BODY = 65536
 
+/** Read-only endpoints. */
+const GET_ROUTES = new Set([
+  '/api/state',
+  '/api/expert-avatar',
+  '/api/skill-detail',
+])
+
+/** Mutating endpoints (same-origin POST only). */
+const POST_ROUTES = new Set([
+  '/api/experts/install',
+  '/api/experts/uninstall',
+  '/api/experts/refresh',
+  '/api/skills/flags',
+  '/api/skills/import',
+  '/api/skills/remove',
+  '/api/skills/create',
+  '/api/connectors/upsert',
+  '/api/connectors/remove',
+  '/api/connectors/enable',
+  '/api/connectors/import',
+  '/api/connectors/tools',
+  '/api/connectors/call',
+])
+
 function notFound(response) {
   sendJson(response, 404, { ok: false, error: { code: 'not-found', message: '未知接口' } })
 }
@@ -76,6 +100,13 @@ export function mountRoutes(options) {
   const handler = async function (request, response) {
     const method = String(request.method ?? 'GET').toUpperCase()
     const path = pathOf(request)
+
+    // Unknown routes answer 404 before the method fence, so a typo is not
+    // reported as 'only POST is accepted'.
+    if (!GET_ROUTES.has(path) && !POST_ROUTES.has(path)) {
+      notFound(response)
+      return
+    }
 
     if (method === 'GET' && path === '/api/state') {
       try {

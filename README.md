@@ -3,7 +3,7 @@
 A DSH settings plugin that ports the three WorkBuddy desktop surfaces - **Experts**, **Skills** and **Connectors** - into DeepSeek Harness.
 
 - **Experts**: the official WorkBuddy expert marketplace (448 entries with real avatars, 15 categories, bilingual names and descriptions) merged with the bundled curated list and the DSH user/project expert roots. Search, category filter, sort, detail view, install and uninstall.
-- **Skills**: every DSH and Agents skill root (`<project>/.dsh/skills`, `<project>/.agents/skills`, `~/.dsh/skills`, `~/.agents/skills`) plus the WorkBuddy skill folder as an import source. Read the body, flip the model/user invocation switches, import, delete, create.
+- **Skills**: the top half is the WorkBuddy cloud skill marketplace (`api.skillhub.cn`, 198,194 skills: a featured trio, 13 categories, search, sort, paging, detail) where "+" installs straight into `~/.dsh/skills`; the bottom half lists the skills on disk (project `.dsh/skills`, project `.agents/skills`, `~/.dsh/skills`, `~/.agents/skills` and the WorkBuddy folder) with body view, model/user invocation switches, WorkBuddy import, delete and create.
 - **Connectors**: the official WorkBuddy connector catalog (409 entries with Chinese names, Chinese descriptions and official icons) is installable in one click; installed MCP servers can be added/edited/removed at runtime, probed for their tool list, called directly, and imported wholesale from WorkBuddy's `mcp.json`.
 
 No build step, no runtime dependencies: the host half is plain ESM, the client half is a hand-written `ModuleLoader` bundle.
@@ -66,6 +66,15 @@ The expert catalog caches only the manifest; avatars live on a CDN (`https://acc
 - Connector icons come entirely from the local marketplace folder; `/api/connector-icon?id=<id>` reads from disk and never opens a socket.
 - Avatars and icons are the **only** cacheable responses (`cache-control: private, max-age=600/3600`); every other route is `no-store`.
 
+## The cloud skill marketplace
+
+The skills tab's featured trio, categories and cards all come from `https://api.skillhub.cn`; the host only proxies and normalises and keeps no local copy of the catalogue.
+
+- `GET /api/skill-market` takes `page`, `pageSize`, `sortBy=installs|downloads|stars|updated_at`, `category`, `keyword` and `seed` and returns one page of cards plus the page count, the 13 categories, the featured trio and install flags in a single round trip.
+- `POST /api/skills/install-market {slug, namespace}` downloads and unpacks a skill into `<dshHome>/skills/<slug>`.
+
+The "installed" badge is resolved **on the client**: the host flags a card by skill folder name, but a marketplace slug often differs from the `name` inside SKILL.md (`self-improving-agent` is named `self-improvement`), and a freshly installed skill only appears once the host re-reads its modules. The client therefore also matches the last segment of each local skill key and its name from `/api/state`, so the badge is right immediately after an install.
+
 ## Chinese first
 
 Expert and connector descriptions resolve to the Chinese field first: `description.zh` -> `description_zh` -> top-level `description` (only when it contains CJK characters). The detail view also shows the English original in a smaller, dimmer, dashed-off block for comparison, but the list never shows an English-only card.
@@ -87,8 +96,11 @@ All routes live under the `/dsh-workbuddy-suite` prefix; the client addresses th
 | GET | `/api/expert-avatar?id=` | Expert avatar (disk cache, then CDN) |
 | GET | `/api/connector-icon?id=` | Connector icon (local catalog) |
 | GET | `/api/skill-detail?key=` | One skill's frontmatter and body |
+| GET | `/api/skill-market` | One page of the cloud marketplace (cards + categories + featured + install state) |
+| GET | `/api/skill-market-detail?slug=&ns=` | Cloud skill detail |
+| GET | `/api/skill-icon?slug=&ns=` | Cloud skill icon (disk cached) |
 | POST | `/api/experts/install` / `uninstall` / `refresh` | Expert changes |
-| POST | `/api/skills/flags` / `import` / `remove` / `create` | Skill changes |
+| POST | `/api/skills/flags` / `import` / `remove` / `create` / `install-market` | Skill changes (including marketplace installs) |
 | POST | `/api/connectors/upsert` / `remove` / `enable` / `import` / `install-catalog` | Connector changes |
 | POST | `/api/connectors/tools` / `call` | Probe tools / call one |
 
@@ -102,6 +114,7 @@ src/state.js             TTL cache + the three-catalog snapshot
 src/experts.js           expert scan / install / uninstall / avatar
 src/expert-catalog.js    WorkBuddy expert marketplace manifest + CDN avatar cache
 src/skills.js            skill scan / frontmatter read-write / import / create
+src/skill-market.js      cloud marketplace client (list / detail / icon / install / cache)
 src/connector-catalog.js WorkBuddy connector catalog + icons + install specs
 src/mcp.js               dependency-free MCP client (stdio + streamable HTTP)
 src/connectors.js        connector registry and runtime connection pool

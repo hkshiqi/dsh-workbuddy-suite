@@ -13,6 +13,7 @@ import { ROUTE_BASE } from './util.js'
 import { installExpert, uninstallExpert, avatarBytesFor } from './experts.js'
 import { scanSkills, readSkillDetail, setSkillFlags, importSkill, removeSkill, createSkill } from './skills.js'
 import { connectorIconFor, connectorSpecFor } from './connector-catalog.js'
+import { marketOverview, marketSkillDetail, installMarketSkill, skillIconBytes } from './skill-market.js'
 
 const MAX_BODY = 65536
 
@@ -23,6 +24,9 @@ const GET_ROUTES = new Set([
   '/api/skill-detail',
   '/api/connector-catalog',
   '/api/connector-icon',
+  '/api/skill-market',
+  '/api/skill-market-detail',
+  '/api/skill-icon',
 ])
 
 /** Mutating endpoints (same-origin POST only). */
@@ -41,6 +45,7 @@ const POST_ROUTES = new Set([
   '/api/connectors/tools',
   '/api/connectors/call',
   '/api/connectors/install-catalog',
+  '/api/skills/install-market',
 ])
 
 function notFound(response) {
@@ -181,6 +186,68 @@ export function mountRoutes(options) {
       return
     }
 
+    if (method === 'GET' && path === '/api/skill-market') {
+      const query = queryOf(request)
+      try {
+        const local = await state.skillsCatalog()
+        const value = await marketOverview({
+          workbuddyHome: state.workbuddyHome,
+          localSkills: local.skills,
+          page: Number(query.get('page') ?? 1) || 1,
+          pageSize: Number(query.get('pageSize') ?? 24) || 24,
+          sortBy: query.get('sortBy') ?? 'installs',
+          category: query.get('category') ?? '',
+          keyword: query.get('keyword') ?? '',
+          featuredSeed: Number(query.get('seed') ?? 0) || 0,
+        })
+        sendJson(response, 200, { ok: true, value })
+      } catch (error) {
+        fail(response, 502, 'market', errorMessage(error))
+      }
+      return
+    }
+
+    if (method === 'GET' && path === '/api/skill-market-detail') {
+      const query = queryOf(request)
+      try {
+        const detail = await marketSkillDetail({
+          slug: query.get('slug') ?? '',
+          namespace: query.get('ns') ?? '',
+        })
+        if (detail === undefined) {
+          notFound(response)
+          return
+        }
+        sendJson(response, 200, { ok: true, value: detail })
+      } catch (error) {
+        fail(response, 502, 'market', errorMessage(error))
+      }
+      return
+    }
+
+    if (method === 'GET' && path === '/api/skill-icon') {
+      const query = queryOf(request)
+      try {
+        const icon = await skillIconBytes({
+          dshHome: state.dshHome,
+          slug: query.get('slug') ?? '',
+          namespace: query.get('ns') ?? '',
+        })
+        if (icon === undefined) {
+          notFound(response)
+          return
+        }
+        response.writeHead(200, {
+          'cache-control': 'private, max-age=86400',
+          'content-type': icon.contentType,
+        })
+        response.end(icon.bytes)
+      } catch (error) {
+        notFound(response)
+      }
+      return
+    }
+
     if (method === 'GET' && path === '/api/skill-detail') {
       try {
         const detail = await readSkillDetail(queryOf(request).get('key') ?? '')
@@ -266,6 +333,18 @@ export function mountRoutes(options) {
     if (path === '/api/skills/remove') {
       await mutate(response, async function () {
         const result = await removeSkill({ key: String(body.key ?? '') })
+        if (result.ok) state.invalidateSkills()
+        return result.ok ? { ok: true, value: result } : result
+      })
+      return
+    }
+    if (path === '/api/skills/install-market') {
+      await mutate(response, async function () {
+        const result = await installMarketSkill({
+          slug: String(body.slug ?? ''),
+          namespace: String(body.namespace ?? ''),
+          dshHome: state.dshHome,
+        })
         if (result.ok) state.invalidateSkills()
         return result.ok ? { ok: true, value: result } : result
       })

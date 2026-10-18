@@ -113,10 +113,40 @@ window.__ModuleLoader__.load({
         catalogEmpty: '没有匹配的连接器。',
         catalogMissing: '没有找到 WorkBuddy 连接器目录（打开一次 WorkBuddy 的「连接器」页即可下载）。',
         catalogCount: '个连接器',
+        marketCount: '个技能',
         connectFailed: '连接失败',
         searchCatalog: '搜索连接器',
         tutorialServer: '服务名',
         allCategories: '分类',
+        featured: '精选技能',
+        refreshBatch: '换一批',
+        recommended: '推荐',
+        recommendedHint: '以下技能来自 WorkBuddy 技能市场（api.skillhub.cn），点「+」直接装进 ~/.dsh/skills。',
+        skillsMarket: '技能市场',
+        localSkills: '本地技能',
+        addSkill: '添加技能',
+        installsLabel: '使用',
+        downloadsLabel: '下载',
+        marketTotal: '共 %s 个技能',
+        pagePrev: '上一页',
+        pageNext: '下一页',
+        pageLabel: '第 %s / %s 页',
+        marketFailed: '技能市场读取失败',
+        marketTimeout: '技能市场连接超时，稍后重试',
+        alreadyInstalled: '已安装',
+        installingSkill: '安装中…',
+        installSkill: '安装到 DSH',
+        sortInstalls: '最热',
+        sortDownloads: '下载最多',
+        sortStars: '收藏最多',
+        sortUpdated: '最近更新',
+        security: '安全',
+        versionsLabel: '版本',
+        ownerLabel: '作者',
+        requiresApiKey: '需要 API Key',
+        changelogLabel: '更新说明',
+        installedLocalTitle: '已经可用的技能',
+        importToDsh: '导入到 DSH',
       },
       en: {
         nav: 'WorkBuddy Experts · Skills · Connectors',
@@ -205,10 +235,40 @@ window.__ModuleLoader__.load({
         catalogEmpty: 'No matching connector.',
         catalogMissing: 'The WorkBuddy connector catalog was not found on this machine.',
         catalogCount: 'connectors',
+        marketCount: 'skills',
         connectFailed: 'Connection failed',
         searchCatalog: 'Search connectors',
         tutorialServer: 'Server',
         allCategories: 'Category',
+        featured: 'Featured',
+        refreshBatch: 'Shuffle',
+        recommended: 'Recommended',
+        recommendedHint: 'Skills below come from the WorkBuddy skill marketplace (api.skillhub.cn); "+" installs one into ~/.dsh/skills.',
+        skillsMarket: 'Skill marketplace',
+        localSkills: 'Local skills',
+        addSkill: 'Add skill',
+        installsLabel: 'uses',
+        downloadsLabel: 'downloads',
+        marketTotal: '%s skills',
+        pagePrev: 'Prev',
+        pageNext: 'Next',
+        pageLabel: 'Page %s / %s',
+        marketFailed: 'Skill marketplace unavailable',
+        marketTimeout: 'Skill marketplace timed out - retry later',
+        alreadyInstalled: 'installed',
+        installingSkill: 'Installing…',
+        installSkill: 'Install into DSH',
+        sortInstalls: 'Most used',
+        sortDownloads: 'Most downloaded',
+        sortStars: 'Most starred',
+        sortUpdated: 'Recently updated',
+        security: 'Security',
+        versionsLabel: 'Versions',
+        ownerLabel: 'Owner',
+        requiresApiKey: 'Needs API key',
+        changelogLabel: 'Changelog',
+        installedLocalTitle: 'Skills already available',
+        importToDsh: 'Import into DSH',
       },
     }
 
@@ -329,6 +389,14 @@ window.__ModuleLoader__.load({
       '.wbs-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;opacity:.55}',
       '.wbs-kv{display:grid;grid-template-columns:88px 1fr;gap:6px 10px;font-size:12.5px;line-height:1.6}',
       '.wbs-kv-k{opacity:.55}',
+      // --- skill marketplace -------------------------------------------------
+      '.wbs-stats{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:auto;padding-top:2px}',
+      '.wbs-stat{font-size:11px;opacity:.55;white-space:nowrap}',
+      '.wbs-featured{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}',
+      '.wbs-featured-card{background:var(--dsw-alias-bg-layer-3,rgba(128,128,128,.08));border-color:var(--dsw-alias-border-l1,rgba(128,128,128,.34))}',
+      '.wbs-icon-lg{width:48px;height:48px;flex:0 0 48px;border-radius:13px;padding:6px}',
+      '.wbs-pagebar{display:flex;align-items:center;justify-content:center;gap:12px;padding:2px 0}',
+      '.wbs-sec .wbs-chip{margin-left:0}',
     ].join('')
 
     function ensureStyle() {
@@ -712,20 +780,127 @@ window.__ModuleLoader__.load({
           h('div', { className: 'wbs-label' }, t('skillScope')),
           h('div', { className: 'wbs-chips' },
             ['user', 'project'].map(function (scope) {
-              return h(Chip, { key: scope, on: value.scope === scope, onClick: function () { patch({ scope }) } },
+              return h('Chip', { key: scope, on: value.scope === scope, onClick: function () { patch({ scope }) } },
                 t(scope === 'user' ? 'scopeUser' : 'scopeProject'))
             }))))
     }
 
-    function SkillCard(props) {
+    /** 12345 -> 1.2w so counters read like the marketplace's own numbers. */
+    function compactCount(value) {
+      var n = Number(value)
+      if (!isFinite(n) || n <= 0) return '0'
+      if (n >= 100000000) return (Math.round(n / 1000000) / 100) + '亿'
+      if (n >= 10000) return (Math.round(n / 1000) / 10) + 'w'
+      return String(Math.round(n))
+    }
+
+    function Stats(props) {
+      var item = props.item
+      return h('div', { className: 'wbs-stats' },
+        h('span', { className: 'wbs-stat', title: t('installsLabel') }, '⚡ ' + compactCount(item.installs)),
+        h('span', { className: 'wbs-stat', title: t('downloadsLabel') }, '⬇ ' + compactCount(item.downloads)),
+        item.requiresApiKey ? h('span', { className: 'wbs-badge' }, t('requiresApiKey')) : null)
+    }
+
+    function marketInstallButton(item, busy, onInstall) {
+      if (item.installed) return h('span', { className: 'wbs-badge' }, t('installedTag'))
+      return h('button', {
+        type: 'button',
+        className: 'wbs-plus',
+        'data-done': busy ? '1' : '0',
+        title: t('installSkill'),
+        disabled: busy,
+        onClick: function (event) { event.stopPropagation(); onInstall(item) },
+      }, busy ? '…' : '+')
+    }
+
+    /** One card of the remote skill marketplace. */
+    function MarketCard(props) {
+      var item = props.item
+      return h('div', { className: 'wbs-card', onClick: cardClick(function () { props.onDetail(item) }) },
+        h('div', { className: 'wbs-card-top' },
+          h(Icon, { src: item.iconUrl, name: item.name }),
+          h('div', { className: 'wbs-col', style: { gap: '2px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name' }, item.name),
+            item.owner !== '' ? h('div', { className: 'wbs-muted' }, item.owner) : null),
+          marketInstallButton(item, props.busy, props.onInstall)),
+        h(Desc, { text: item.description, clamp: 3 }),
+        h(Stats, { item: item }))
+    }
+
+    /** The featured trio: same card, slightly stronger presence. */
+    function FeaturedCard(props) {
+      var item = props.item
+      return h('div', { className: 'wbs-card wbs-featured-card', onClick: cardClick(function () { props.onDetail(item) }) },
+        h('div', { className: 'wbs-card-top' },
+          h(Icon, { src: item.iconUrl, name: item.name }),
+          h('div', { className: 'wbs-col', style: { gap: '2px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name' }, item.name),
+            item.owner !== '' ? h('div', { className: 'wbs-muted' }, item.owner) : null),
+          marketInstallButton(item, props.busy, props.onInstall)),
+        h(Desc, { text: item.description, clamp: 3 }),
+        h(Stats, { item: item }))
+    }
+
+    function MarketDetail(props) {
+      var item = props.detail !== null && props.detail !== undefined ? props.detail : props.item
+      var examples = item.examples || []
+      var en = ''
+      if (item.descriptionEn !== undefined && item.descriptionEn !== null && item.descriptionEn !== '' && item.descriptionEn !== item.description) {
+        // Only worth a second paragraph when the marketplace actually has a
+        // different-language original; some entries repeat the Chinese text.
+        var latin = (String(item.descriptionEn).match(/[A-Za-z]/g) || []).length
+        var cjk = (String(item.descriptionEn).match(/[\u4e00-\u9fff]/g) || []).length
+        if (latin > cjk) en = item.descriptionEn
+      }
+      return h(Modal, {
+        title: item.name,
+        onClose: props.onClose,
+        footer: h('div', { className: 'wbs-row' },
+          h(Btn, { onClick: props.onClose }, t('close')),
+          item.installed
+            ? h('span', { className: 'wbs-muted' }, t('installedTag'))
+            : h(Btn, { kind: 'primary', disabled: props.busy, onClick: function () { props.onInstall(item) } },
+              props.busy ? t('installingSkill') : t('installSkill'))),
+      },
+        h('div', { className: 'wbs-row', style: { gap: '12px', alignItems: 'flex-start' } },
+          h('img', { className: 'wbs-icon wbs-icon-lg', src: item.iconUrl, alt: '', loading: 'lazy' }),
+          h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name', style: { fontSize: '15px' } }, item.name),
+            item.owner !== '' ? h('div', { className: 'wbs-muted' }, t('ownerLabel') + ' · ' + item.owner) : null,
+            h(Stats, { item: item }))),
+        h('div', { className: 'wbs-kv' },
+          h('div', { className: 'wbs-kv-k' }, 'ID'),
+          h('div', { className: 'wbs-id' }, item.id),
+          item.version !== undefined && item.version !== '' ? h('div', { className: 'wbs-kv-k' }, t('versionsLabel')) : null,
+          item.version !== undefined && item.version !== '' ? h('div', null, 'v' + item.version) : null,
+          item.security !== undefined && item.security !== '' ? h('div', { className: 'wbs-kv-k' }, t('security')) : null,
+          item.security !== undefined && item.security !== '' ? h('div', null, item.security) : null),
+        h('div', { className: 'wbs-desc-full' }, item.description || '—'),
+        en === '' ? null : h('div', { className: 'wbs-desc-full', 'data-lang': '1' }, en),
+        item.changelog !== undefined && item.changelog !== '' ? h('div', { className: 'wbs-col', style: { gap: '5px' } },
+          h('div', { className: 'wbs-label' }, t('changelogLabel')),
+          h('div', { className: 'wbs-note' }, item.changelog)) : null,
+        examples.length === 0 ? null : h('div', { className: 'wbs-col', style: { gap: '6px' } },
+          h('div', { className: 'wbs-label' }, t('examples')),
+          h('div', { className: 'wbs-chips' }, examples.map(function (text, index) {
+            return h('span', { className: 'wbs-tag', key: index }, text)
+          }))),
+        props.loading ? h('div', { className: 'wbs-note' }, t('loading')) : null)
+    }
+
+    /** A skill that already lives on disk (DSH roots + WorkBuddy import source). */
+    function LocalSkillCard(props) {
       var skill = props.skill
+      var meta = (t('origins')[skill.origin] || skill.origin)
+        + (skill.version ? ' · v' + skill.version : '')
+        + (skill.files ? ' · ' + skill.files + ' files' : '')
       return h('div', { className: 'wbs-card', onClick: cardClick(function () { props.onDetail(skill) }) },
         h('div', { className: 'wbs-card-top' },
+          h(Icon, { name: skill.name }),
           h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0, flex: 1 } },
             h('div', { className: 'wbs-card-name' }, skill.name),
-            h('div', { className: 'wbs-muted' }, (t('origins')[skill.origin] || skill.origin)
-              + (skill.version ? ' · v' + skill.version : '')
-              + (skill.files ? ' · ' + skill.files + ' files' : '')))),
+            h('div', { className: 'wbs-muted' }, meta))),
         h(Desc, { text: skill.description, clamp: 3 }),
         skill.valid === false ? h('div', { className: 'wbs-err' }, skill.problem) : null,
         h('div', { className: 'wbs-row', style: { gap: '12px', flexWrap: 'wrap' } },
@@ -756,43 +931,174 @@ window.__ModuleLoader__.load({
             : null))
     }
 
+    function LocalSkillDetail(props) {
+      var skill = props.skill
+      var detail = props.detail
+      var files = detail !== null && detail !== undefined && detail.files !== undefined ? detail.files : []
+      var body = detail !== null && detail !== undefined && detail.body !== undefined ? detail.body : ''
+      return h(Modal, {
+        title: skill.name,
+        onClose: props.onClose,
+      },
+        h('div', { className: 'wbs-kv' },
+          h('div', { className: 'wbs-kv-k' }, t('category')),
+          h('div', null, (t('origins')[skill.origin] || skill.origin) + (skill.version ? ' · v' + skill.version : '')),
+          h('div', { className: 'wbs-kv-k' }, 'ID'),
+          h('div', { className: 'wbs-id' }, skill.key)),
+        h('div', { className: 'wbs-desc-full' }, skill.description || '—'),
+        files.length === 0 ? null : h('div', { className: 'wbs-row', style: { flexWrap: 'wrap', gap: '6px' } }, files.map(function (item, index) {
+          return h('span', { className: 'wbs-tag', key: index }, (item.dir ? '▸ ' : '') + item.name)
+        })),
+        body === '' ? null : h('pre', { className: 'wbs-pre' }, body))
+    }
+
     function SkillsPane(props) {
       var query = useState('')
-      var origin = useState('all')
-      var sort = useState('default')
-      var preview = useState(null)
-      var detail = useState(null)
+      var keyword = useState('')
+      var category = useState('')
+      var sortBy = useState('installs')
+      var page = useState(1)
+      var seed = useState(0)
+      var tick = useState(0)
       var creating = useState(false)
       var busy = useState('')
+      var market = useState({ data: null, error: '', busy: true })
+      var shown = useState(null)
+      var shownDetail = useState(null)
+      var detailLoading = useState(false)
       var skills = props.data.skills || []
-      var q = query[0].trim().toLowerCase()
-      var filtered = useMemo(function () {
-        var list = skills.filter(function (skill) {
-          if (origin[0] !== 'all' && skill.origin !== origin[0]) return false
-          if (q === '') return true
-          return (skill.name + ' ' + skill.description).toLowerCase().indexOf(q) >= 0
+      var q = query[0].trim()
+
+      // Debounce the search box so typing does not hammer the marketplace.
+      useEffect(function () {
+        if (q === '') {
+          if (keyword[0] !== '') { keyword[1](''); page[1](1) }
+          return undefined
+        }
+        var timer = setTimeout(function () {
+          keyword[1](q)
+          page[1](1)
+        }, 350)
+        return function () { clearTimeout(timer) }
+      }, [q])
+
+      var params = [
+        'page=' + page[0],
+        'pageSize=24',
+        'sortBy=' + encodeURIComponent(sortBy[0]),
+        'seed=' + seed[0],
+        'tick=' + tick[0],
+      ]
+      if (category[0] !== '') params.push('category=' + encodeURIComponent(category[0]))
+      if (keyword[0] !== '') params.push('keyword=' + encodeURIComponent(keyword[0]))
+      var marketKey = params.join('&')
+
+      useEffect(function () {
+        var cancelled = false
+        market[1](function (previous) { return Object.assign({}, previous, { busy: true, error: '' }) })
+        api('/skill-market?' + marketKey).then(function (value) {
+          if (!cancelled) market[1]({ data: value, error: '', busy: false })
+        }).catch(function (error) {
+          if (!cancelled) market[1](function (previous) {
+            return { data: previous.data, error: String(error.message || error), busy: false }
+          })
         })
-        if (sort[0] === 'name') list = list.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name)) })
-        return list
-      }, [skills, q, origin[0], sort[0]])
+        return function () { cancelled = true }
+      }, [marketKey])
+
+      var value = market[0]
+      var data = value.data
+      var cards = (data !== null && data !== undefined && data.cards !== undefined) ? data.cards : []
+      var featured = (data !== null && data !== undefined && data.featured !== undefined) ? data.featured : []
+
+      // The host flags a card from the skill folder name, but a marketplace
+      // install keeps its folder while SKILL.md may rename the skill, and a
+      // fresh install only shows up once the host re-reads its module. Match
+      // the local skills we already have in state so the badge is right now.
+      var localIds = {}
+      skills.forEach(function (skill) {
+        var key = String(skill.key || '')
+        var cut = key.lastIndexOf(':')
+        var folder = cut >= 0 ? key.slice(cut + 1) : key
+        folder.split(/[\\/]/).forEach(function (part) {
+          if (part !== '') localIds[part.toLowerCase()] = true
+        })
+        if (skill.name) localIds[String(skill.name).toLowerCase()] = true
+      })
+      function withInstalled(item) {
+        if (item.installed === true) return item
+        var slug = String(item.slug || '').toLowerCase()
+        var id = String(item.id || '').toLowerCase()
+        var tail = id.slice(id.lastIndexOf('/') + 1)
+        if (localIds[slug] === true || localIds[id] === true || localIds[tail] === true) {
+          return Object.assign({}, item, { installed: true })
+        }
+        return item
+      }
+      cards = cards.map(withInstalled)
+      featured = featured.map(withInstalled)
+      var categories = (data !== null && data !== undefined && data.categories !== undefined) ? data.categories : []
+      var total = (data !== null && data !== undefined && data.total !== undefined) ? data.total : 0
+      var pageCount = (data !== null && data !== undefined && data.pageCount !== undefined) ? data.pageCount : 1
+      var pageNow = (data !== null && data !== undefined && data.page !== undefined) ? data.page : page[0]
+
+      function refresh() {
+        tick[1](tick[0] + 1)
+        props.onReload()
+      }
+
+      function install(item) {
+        busy[1](item.id)
+        post('/skills/install-market', { slug: item.slug, namespace: item.namespace }).then(function () {
+          busy[1]('')
+          refresh()
+        }).catch(function (error) {
+          busy[1]('')
+          props.onError(t('connectFailed') + ': ' + String(error.message || error))
+        })
+      }
 
       function act(path, body, id) {
         busy[1](id)
-        post(path, body).then(function () { busy[1](''); props.onReload() })
-          .catch(function (error) { busy[1](''); props.onError(String(error.message || error)) })
-      }
-
-      function openDetail(skill) {
-        preview[1](skill)
-        detail[1](null)
-        api('/skill-detail?key=' + encodeURIComponent(skill.key)).then(function (value) {
-          detail[1](value)
+        post(path, body).then(function () {
+          busy[1]('')
+          refresh()
         }).catch(function (error) {
+          busy[1]('')
           props.onError(String(error.message || error))
         })
       }
 
-      var shown = preview[0]
+      function openMarket(item) {
+        shown[1](item)
+        shownDetail[1](null)
+        detailLoading[1](true)
+        api('/skill-market-detail?slug=' + encodeURIComponent(item.slug) + '&ns=' + encodeURIComponent(item.namespace || ''))
+          .then(function (detail) {
+            detailLoading[1](false)
+            shownDetail[1](Object.assign({}, item, detail))
+          })
+          .catch(function () {
+            detailLoading[1](false)
+            shownDetail[1](item)
+          })
+      }
+
+      function openLocal(skill) {
+        shown[1]({ local: skill })
+        shownDetail[1](null)
+        detailLoading[1](true)
+        api('/skill-detail?key=' + encodeURIComponent(skill.key)).then(function (detail) {
+          detailLoading[1](false)
+          shownDetail[1](detail)
+        }).catch(function () {
+          detailLoading[1](false)
+          shownDetail[1](null)
+        })
+      }
+
+      var current = shown[0]
+      var isLocal = current !== null && current !== undefined && current.local !== undefined
 
       return h('div', { className: 'wbs-col' },
         h('div', { className: 'wbs-bar' },
@@ -803,30 +1109,76 @@ window.__ModuleLoader__.load({
             onChange: function (event) { query[1](event.target.value) },
           }),
           h('div', { className: 'wbs-grow' }),
-          h(Btn, { onClick: function () { creating[1](true) } }, t('createSkill')),
+          h(Btn, { disabled: value.busy, onClick: refresh }, value.busy ? t('loading') : t('refresh')),
           h(Dropdown, {
             label: t('sort'),
-            value: sort[0],
-            options: [{ value: 'default', label: t('sortDefault') }, { value: 'name', label: t('sortName') }],
-            onChange: function (value) { sort[1](value) },
-          })),
+            value: sortBy[0],
+            options: [
+              { value: 'installs', label: t('sortInstalls') },
+              { value: 'downloads', label: t('sortDownloads') },
+              { value: 'stars', label: t('sortStars') },
+              { value: 'updated_at', label: t('sortUpdated') },
+            ],
+            onChange: function (next) { sortBy[1](next); page[1](1) },
+          }),
+          h(Btn, { kind: 'primary', onClick: function () { creating[1](true) } }, t('addSkill'))),
+        h('div', { className: 'wbs-note' }, t('recommendedHint')),
+        value.error !== '' ? h('div', { className: 'wbs-err' }, t('marketFailed') + ': ' + value.error) : null,
+        featured.length === 0 ? null : h('div', { className: 'wbs-col', style: { gap: '8px' } },
+          h(Section, {
+            label: t('featured'),
+            extra: h('button', {
+              type: 'button',
+              className: 'wbs-chip',
+              onClick: function (event) { event.stopPropagation(); seed[1](seed[0] + 1) },
+            }, t('refreshBatch')),
+          }),
+          h('div', { className: 'wbs-featured' }, featured.map(function (item) {
+            return h(FeaturedCard, {
+              key: item.key,
+              item: item,
+              busy: busy[0] === item.id,
+              onInstall: install,
+              onDetail: openMarket,
+            })
+          }))),
         h('div', { className: 'wbs-chips' },
-          ['all', 'project', 'user', 'workbuddy'].map(function (value) {
+          h(Chip, { on: category[0] === '', onClick: function () { category[1](''); page[1](1) } }, t('all')),
+          categories.map(function (item) {
             return h(Chip, {
-              key: value,
-              on: origin[0] === value,
-              onClick: function () { origin[1](value) },
-            }, value === 'all' ? t('all') : (t('origins')[value] || value))
+              key: item.key,
+              on: category[0] === item.key,
+              onClick: function () { category[1](category[0] === item.key ? '' : item.key); page[1](1) },
+            }, item.name)
           })),
-        h('div', { className: 'wbs-note' }, t('skillsHint')),
-        filtered.length === 0
+        h(Section, {
+          label: keyword[0] === '' ? t('recommended') : t('searchSkills'),
+          extra: String(total) + ' ' + t('marketCount'),
+        }),
+        cards.length === 0
+          ? h('div', { className: 'wbs-empty' }, value.busy ? t('loading') : t('emptySkills'))
+          : h('div', { className: 'wbs-grid' }, cards.map(function (item) {
+              return h(MarketCard, {
+                key: item.key,
+                item: item,
+                busy: busy[0] === item.id,
+                onInstall: install,
+                onDetail: openMarket,
+              })
+            })),
+        h('div', { className: 'wbs-pagebar' },
+          h(Btn, { size: 'sm', disabled: pageNow <= 1 || value.busy, onClick: function () { page[1](Math.max(1, pageNow - 1)) } }, t('pagePrev')),
+          h('span', { className: 'wbs-muted' }, t('pageLabel').replace('%s', String(pageNow)).replace('%s', String(pageCount))),
+          h(Btn, { size: 'sm', disabled: pageNow >= pageCount || value.busy, onClick: function () { page[1](Math.min(pageCount, pageNow + 1)) } }, t('pageNext'))),
+        h(Section, { label: t('localSkills'), extra: String(skills.length) }),
+        skills.length === 0
           ? h('div', { className: 'wbs-empty' }, t('emptySkills'))
-          : h('div', { className: 'wbs-grid' }, filtered.map(function (skill) {
-              return h(SkillCard, {
+          : h('div', { className: 'wbs-grid' }, skills.map(function (skill) {
+              return h(LocalSkillCard, {
                 key: skill.key,
                 skill: skill,
                 busy: busy[0] === skill.key,
-                onDetail: openDetail,
+                onDetail: openLocal,
                 onFlag: function (item, flags) { act('/skills/flags', Object.assign({ key: item.key }, flags), item.key) },
                 onImport: function (item) { act('/skills/import', { key: item.key }, item.key) },
                 onRemove: function (item) {
@@ -834,30 +1186,26 @@ window.__ModuleLoader__.load({
                 },
               })
             })),
-        shown === null ? null : h(Modal, {
-          title: shown.name,
-          onClose: function () { preview[1](null); detail[1](null) },
-        },
-          h('div', { className: 'wbs-kv' },
-            h('div', { className: 'wbs-kv-k' }, t('category')),
-            h('div', null, (t('origins')[shown.origin] || shown.origin) + (shown.version ? ' · v' + shown.version : '')),
-            h('div', { className: 'wbs-kv-k' }, 'ID'),
-            h('div', { className: 'wbs-id' }, shown.key)),
-          h('div', { className: 'wbs-desc-full' }, shown.description || '—'),
-          detail[0] !== null && detail[0].files !== undefined && detail[0].files.length > 0
-            ? h('div', { className: 'wbs-row', style: { flexWrap: 'wrap', gap: '6px' } }, detail[0].files.map(function (item, index) {
-                return h('span', { className: 'wbs-tag', key: index }, (item.dir ? '▸ ' : '') + item.name)
-              }))
-            : null,
-          detail[0] !== null && detail[0].body !== undefined && detail[0].body !== ''
-            ? h('pre', { className: 'wbs-pre' }, detail[0].body)
-            : null),
+        current === null || current === undefined ? null : (isLocal
+          ? h(LocalSkillDetail, {
+              skill: current.local,
+              detail: shownDetail[0],
+              onClose: function () { shown[1](null); shownDetail[1](null) },
+            })
+          : h(MarketDetail, {
+              item: current,
+              detail: shownDetail[0],
+              loading: detailLoading[0],
+              busy: busy[0] === current.id,
+              onInstall: install,
+              onClose: function () { shown[1](null); shownDetail[1](null) },
+            })),
         creating[0] ? h(CreateSkillModal, {
           onClose: function () { creating[1](false) },
           onCreate: function (payload) {
             post('/skills/create', payload).then(function () {
               creating[1](false)
-              props.onReload()
+              refresh()
             }).catch(function (error) { props.onError(String(error.message || error)) })
           },
         }) : null)

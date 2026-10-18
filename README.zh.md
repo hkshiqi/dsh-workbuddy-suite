@@ -143,6 +143,16 @@ node test/entry.mjs    # 宿主入口注册路由与 /workbuddy 命令
 
 测试只写临时目录，不会改动你的专家、技能或连接器。
 
+## 排查：面板没出现 / 接口 404
+
+三条独立的原因，按顺序查一遍即可：
+
+1. **`package.json` 带 UTF-8 BOM** —— DSH 用 `JSON.parse` 校验已装插件，BOM 会让它报 `Cannot validate installed package …: SyntaxError: Unexpected token`，插件算「未安装」，市场里的开关状态停在 `missing`。文件必须以 `{` 开头，不能有 `EF BB BF`。
+2. **市场开关关过又开** —— dshmarket 把热挂载行写进 `<profile>/.dsh-market/hot-N.yml`，关闭时**追加**禁用行却**不删**旧的 hot 文件。重新打开后 loader 里仍留着旧行，宿主把新代码挂到旧模块上，接口继续 404。删掉 `<profile>/.dsh-market/hot-*.yml` 再 toggle 一次即可。
+3. **客户端 bundle 没进 boot 图** —— 打开 `http://127.0.0.1:<port>/` 看 `window.__DSH_BOOT__.entries` 里有没有 `dsh-workbuddy-suite`。宿主半边正常（`/dsh-workbuddy-suite/api/state` 返回 200）而客户端缺失时，刷新页面即可；仍缺失说明 patch 层被禁用，检查 `<profile>/cordis.patch.yml` 里有没有 `- id: dsh-workbuddy-suite` + `disabled: false`。
+
+改前端 `client/client.js` 只需刷新页面（`/plugins` 的 `rev` 跟 bundle 的 mtime/size 走）；改**宿主**代码（`src/*.js`）则要 toggle 一次，换掉 loader 里那个 fiber。
+
 ## 许可
 
 MIT

@@ -135,6 +135,16 @@ node test/entry.mjs    # host entry: route mount and the /workbuddy command
 
 The test writes only to a temp directory; it never touches your experts, skills or connectors.
 
+## Troubleshooting: the panel is missing / the API answers 404
+
+Three independent causes, in the order worth checking:
+
+1. **`package.json` starts with a UTF-8 BOM** — DSH validates installed packages with `JSON.parse`, and a BOM makes it report `Cannot validate installed package …: SyntaxError: Unexpected token`. The plugin counts as uninstalled and the market switch stays at `missing`. The file must start with `{`, never `EF BB BF`.
+2. **The market switch was turned off and back on** — dshmarket writes hot-mount rows to `<profile>/.dsh-market/hot-N.yml`; switching off appends a disable row but leaves the old hot file behind. Turning it back on leaves the stale row in the loader, so the host mounts the new code on top of the old module and the API keeps answering 404. Remove `<profile>/.dsh-market/hot-*.yml` and toggle once more.
+3. **The client bundle never entered the boot graph** — open `http://127.0.0.1:<port>/` and look for `dsh-workbuddy-suite` in `window.__DSH_BOOT__.entries`. When the host half works (`/dsh-workbuddy-suite/api/state` answers 200) but the client half is absent, reload the page; if it is still missing the patch layer is disabled, so check `<profile>/cordis.patch.yml` for `- id: dsh-workbuddy-suite` with `disabled: false`.
+
+Editing `client/client.js` only needs a page reload (the `/plugins` `rev` follows the bundle's mtime/size); editing **host** code (`src/*.js`) needs one toggle, to replace the fiber in the loader.
+
 ## License
 
 MIT

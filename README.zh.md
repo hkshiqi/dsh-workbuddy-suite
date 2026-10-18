@@ -52,7 +52,7 @@ cmd /c mklink /J "$dst" "E:\path\to\dsh-workbuddy-suite"
 
 ### 面板位置
 
-侧栏底部的 **◈ WorkBuddy 专家·技能·连接器** 按钮会打开一个整屏浮层面板（Esc / 点遮罩关闭）；设置页里也注册了同一份内容，位置是 **设置 → WorkBuddy 生态**。
+侧栏主导航（与「插件 / 插件市场 / 自动化任务 / 上下文洞察 / 记忆系统」同一列）里有一行 **WorkBuddy 专家·技能·连接器**，位置在「记忆系统」下面（`sidebar.panellist` 的 `order: 35`，记忆系统是 30）。点它切到本插件的整屏页面（`main` 面板 key = `workbuddy-suite`），标题栏用与其它页面相同的方式切走即可离开。设置页里也注册了同一份内容，位置是 **设置 → WorkBuddy 生态**。
 
 ## 数据从哪来、写到哪去
 

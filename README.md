@@ -46,7 +46,7 @@ Host-half edits take effect through a disable/enable round in the plugin market 
 
 ### Where the panel lives
 
-The **◈ WorkBuddy experts, skills, connectors** button in the sidebar footer opens a full-screen overlay (Esc or a click on the mask closes it). The same content is also registered as a `settings.section` under **Settings -> WorkBuddy ecosystem**.
+The sidebar's global navigation (the same column as *Plugins / Plugin market / Scheduled tasks / Context insights / Memory*) carries a **WorkBuddy experts, skills, connectors** row, placed right below *Memory* (`sidebar.panellist` with `order: 35`; Memory is 30). It selects this package's full-page `main` panel (`workbuddy-suite`); navigate away with any other sidebar row. The same content is also registered as a `settings.section` under **Settings -> WorkBuddy ecosystem**.
 
 ## Where data comes from and where it goes
 

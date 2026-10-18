@@ -89,7 +89,12 @@ const ctx = {
 loaded.apply(ctx)
 check('registers a settings section', registrations.some(function (r) { return r.spec.name === 'settings.section' }))
 check('settings section id', registrations.some(function (r) { return r.spec.name === 'settings.section' && r.spec.id === 'workbuddy-suite' }))
-check('registers a sidebar action', registrations.some(function (r) { return r.spec.name === 'sidebar.footer.action' }))
+check('registers a sidebar panellist row', registrations.some(function (r) { return r.spec.name === 'sidebar.panellist' && r.spec.id === 'workbuddy-suite' }))
+check('sidebar row sorts after memory (order 35)', registrations.some(function (r) { return r.spec.name === 'sidebar.panellist' && r.spec.order === 35 }))
+check('sidebar row has a label', registrations.some(function (r) { return r.spec.name === 'sidebar.panellist' && typeof r.spec.label === 'function' }))
+check('registers the matching main panel', registrations.some(function (r) { return r.spec.name === 'main' && r.spec.key === 'workbuddy-suite' }))
+check('no footer action left behind', registrations.every(function (r) { return r.spec.name !== 'sidebar.footer.action' }))
+check('no standalone overlay left behind', registrations.every(function (r) { return r.spec.name !== 'shell.overlay' }))
 check('registers locale dicts', localeRegistrations.length === 1 && localeRegistrations[0].ns === 'workbuddy-suite')
 check('locale has zh and en', localeRegistrations[0].dicts.zh !== undefined && localeRegistrations[0].dicts.en !== undefined)
 check('no duplicate sections', registrations.filter(function (r) { return r.spec.name === 'settings.section' }).length === 1)
@@ -104,6 +109,24 @@ try {
   check('root renders', rendered !== undefined && rendered !== null)
 } catch (error) {
   check('root renders', false, String(error))
+}
+
+/* the sidebar row and its panel must render without throwing ------------- */
+
+const mark = registrations.find(function (r) { return r.spec.name === 'sidebar.panellist' }).component
+try {
+  const icon = mark({ size: 16, active: false })
+  check('sidebar row renders an icon', icon !== undefined && icon !== null && icon.type === 'svg')
+} catch (error) {
+  check('sidebar row renders an icon', false, String(error))
+}
+
+const panel = registrations.find(function (r) { return r.spec.name === 'main' }).component
+try {
+  const node = panel({})
+  check('main panel renders', node !== undefined && node !== null)
+} catch (error) {
+  check('main panel renders', false, String(error))
 }
 
 /* the shell's t() must resolve real copy -------------------------------- */

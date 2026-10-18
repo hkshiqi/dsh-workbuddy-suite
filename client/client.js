@@ -366,10 +366,8 @@ window.__ModuleLoader__.load({
       '.wbs-dd-opt{appearance:none;border:0;background:transparent;color:inherit;font:inherit;font-size:12.5px;text-align:left;padding:6px 9px;border-radius:6px;cursor:pointer}',
       '.wbs-dd-opt:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.14))}',
       '.wbs-dd-opt[data-on="1"]{font-weight:600}',
-      '.wbs-shell-mask{position:fixed;inset:0;z-index:58;display:flex;align-items:stretch;justify-content:center;background:rgba(0,0,0,.34);backdrop-filter:blur(2px);padding:min(6vh,56px) min(6vw,72px)}',
-      '.wbs-shell{width:min(1120px,100%);display:flex;flex-direction:column;border-radius:18px;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.24));box-shadow:0 32px 80px -24px rgba(0,0,0,.5);overflow:hidden}',
-      '.wbs-shell-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.18))}',
-      '.wbs-shell-body{padding:16px;overflow:auto}',
+      '.wbs-panel{display:flex;flex-direction:column;height:100%;min-height:0;padding:calc(28px + var(--dsh-frame-top-clearance,0px)) 0 0;background:var(--dsw-alias-bg-layer-1,#fff)}',
+      '.wbs-panel-inner{flex:1;min-width:0;min-height:0;overflow:auto;padding:0 max(max(16px,min(4vw,48px)),calc(50% - 560px)) 24px}',
       // --- catalog redesign -------------------------------------------------
       '.wbs-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:12px;object-fit:cover;background:var(--dsw-alias-bg-layer-3,rgba(128,128,128,.16));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;opacity:.9;box-shadow:0 1px 2px rgba(0,0,0,.08)}',
       '.wbs-avatar-lg{width:56px;height:56px;flex:0 0 56px;border-radius:14px;font-size:20px}',
@@ -1600,49 +1598,30 @@ window.__ModuleLoader__.load({
           : null)
     }
 
-    /* ---------- panel visibility store ---------- */
+    /* ---------- sidebar panel ---------- */
 
-    var panelStore = { open: false, listeners: [] }
+    var PANEL_ID = 'workbuddy-suite'
 
-    function setPanelOpen(next) {
-      panelStore.open = next === true
-      for (var i = 0; i < panelStore.listeners.length; i += 1) {
-        try { panelStore.listeners[i](panelStore.open) } catch (error) { void error }
-      }
+    // The host draws the sidebar row and its label from list metadata; this only
+    // paints the glyph, so it must stay a plain, prop-driven picture.
+    function SuiteMark(props) {
+      var size = (props !== null && props !== undefined && props.size) || 16
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 16 16', fill: 'none',
+        'aria-hidden': 'true', focusable: 'false',
+      },
+        h('path', {
+          d: 'M8 1.6 9.9 5.6 14 7.5 9.9 9.4 8 13.4 6.1 9.4 2 7.5 6.1 5.6Z',
+          fill: 'currentColor', opacity: props !== null && props !== undefined && props.active ? 1 : 0.78,
+        }),
+        h('circle', { cx: 8, cy: 7.5, r: 1.15, fill: 'var(--dsw-alias-bg-layer-1,#fff)', opacity: 0.9 }))
     }
 
-    function usePanelOpen() {
-      var state = useState(panelStore.open)
-      useEffect(function () {
-        var listener = function (value) { state[1](value) }
-        panelStore.listeners.push(listener)
-        listener(panelStore.open)
-        return function () {
-          var index = panelStore.listeners.indexOf(listener)
-          if (index >= 0) panelStore.listeners.splice(index, 1)
-        }
-      }, [])
-      return state[0]
-    }
-
-    function SuiteOverlay() {
-      var open = usePanelOpen()
-      useEffect(function () {
-        if (!open) return undefined
-        function onKey(event) { if (event.key === 'Escape') setPanelOpen(false) }
-        document.addEventListener('keydown', onKey)
-        return function () { document.removeEventListener('keydown', onKey) }
-      }, [open])
-      if (!open) return null
-      return h('div', { className: 'wbs-shell-mask', onMouseDown: function (event) {
-        if (event.target === event.currentTarget) setPanelOpen(false)
-      } },
-        h('div', { className: 'wbs-shell' },
-          h('div', { className: 'wbs-shell-head' },
-            h('div', { className: 'wbs-card-name' }, '◈ ' + t('nav')),
-            h('div', { className: 'wbs-grow' }),
-            h(Btn, { size: 'sm', onClick: function () { setPanelOpen(false) } }, t('close'))),
-          h('div', { className: 'wbs-shell-body' }, h(SuiteRoot))))
+    // DSH selects this seat when the sidebar row is clicked; the panel owns its
+    // own scrolling and top clearance so the frame's drag band stays usable.
+    function SuitePanel() {
+      return h('div', { className: 'wbs-panel' },
+        h('div', { className: 'wbs-panel-inner' }, h(SuiteRoot)))
     }
 
     /* ---------- registration ---------- */
@@ -1677,10 +1656,6 @@ window.__ModuleLoader__.load({
         return
       }
 
-      function openPanel() {
-        setPanelOpen(!panelStore.open)
-      }
-
       collect(ctx.slots.inject('settings.section', function () {
         return ctx.slots.register({
           name: 'settings.section',
@@ -1692,31 +1667,25 @@ window.__ModuleLoader__.load({
         }, SuiteRoot)
       }))
 
-      collect(ctx.slots.inject('sidebar.footer.action', function () {
+      // The sidebar row is the entry: order 35 sits it right after the memory
+      // panel (order 30) and before anything the host appends later.
+      collect(ctx.slots.inject('sidebar.panellist', function () {
         return ctx.slots.register({
-          name: 'sidebar.footer.action',
-          id: 'workbuddy-suite',
-          order: 30,
+          name: 'sidebar.panellist',
+          id: PANEL_ID,
+          order: 35,
           label: function () { return t('nav') },
           locale: NS,
-        }, function SidebarAction() {
-          return h('button', {
-            type: 'button',
-            className: 'wbs-btn',
-            style: { width: '100%', justifyContent: 'flex-start' },
-            title: t('title'),
-            onClick: openPanel,
-          }, '◈ ' + t('nav'))
-        })
+        }, SuiteMark)
       }))
 
-      collect(ctx.slots.inject('shell.overlay', function () {
+      collect(ctx.slots.inject('main', function () {
         return ctx.slots.register({
-          name: 'shell.overlay',
-          id: 'workbuddy-suite-panel',
-          order: 40,
+          name: 'main',
+          key: PANEL_ID,
           locale: NS,
-        }, SuiteOverlay)
+          inject: function () { return { t } },
+        }, SuitePanel)
       }))
 
       collect(ensureStyle())

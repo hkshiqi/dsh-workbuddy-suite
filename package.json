@@ -1,6 +1,6 @@
 ﻿{
   "name": "dsh-workbuddy-suite",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "WorkBuddy's experts, skills and connectors as a DSH settings panel: browse and install experts, toggle and import skills, and manage MCP connectors at runtime.",
   "type": "module",
   "main": "src/index.js",

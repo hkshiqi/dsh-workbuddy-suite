@@ -1,6 +1,6 @@
 /**
  * Catalog state: one place that knows the roots, the caches and the
- * invalidation rules for the two read-only catalogs (experts, skills).
+ * invalidation rules for the read-only catalogs (experts, skills, connectors).
  *
  * Caching is TTL + explicit invalidation: a scan touches every file under a
  * root, so a panel refresh should not re-walk the disk; a mutation calls
@@ -9,6 +9,7 @@
 
 import { scanExperts } from './experts.js'
 import { scanSkills } from './skills.js'
+import { scanConnectorCatalog } from './connector-catalog.js'
 
 const TTL_MS = 15000
 
@@ -27,15 +28,20 @@ export function createState(options) {
     projectRoot: options.projectRoot,
     expertCache: undefined,
     skillCache: undefined,
+    connectorCatalogCache: undefined,
     invalidateExperts() {
       state.expertCache = undefined
     },
     invalidateSkills() {
       state.skillCache = undefined
     },
+    invalidateConnectorCatalog() {
+      state.connectorCatalogCache = undefined
+    },
     invalidateAll() {
       state.invalidateExperts()
       state.invalidateSkills()
+      state.invalidateConnectorCatalog()
     },
     async expertsCatalog() {
       if (state.expertCache !== undefined && state.expertCache.expires > now()) return state.expertCache.value
@@ -58,6 +64,15 @@ export function createState(options) {
       state.skillCache = { value, expires: now() + TTL_MS }
       return value
     },
+    /** The WorkBuddy connector marketplace (browser-side directory). */
+    async connectorCatalog() {
+      if (state.connectorCatalogCache !== undefined && state.connectorCatalogCache.expires > now()) {
+        return state.connectorCatalogCache.value
+      }
+      const value = await scanConnectorCatalog({ workbuddyHome: state.workbuddyHome })
+      state.connectorCatalogCache = { value, expires: now() + TTL_MS }
+      return value
+    },
     /** Everything the panel needs in one round trip. */
     async snapshot() {
       const [experts, skills, connectorState] = await Promise.all([
@@ -66,7 +81,7 @@ export function createState(options) {
         options.connectors(),
       ])
       return {
-        version: 1,
+        version: 2,
         roots: {
           dshHome: state.dshHome,
           agentsHome: state.agentsHome,
@@ -76,6 +91,7 @@ export function createState(options) {
         experts: experts.experts,
         expertWarnings: experts.warnings,
         expertRoots: experts.roots,
+        expertCategories: experts.categories,
         skills: skills.skills,
         skillWarnings: skills.warnings,
         skillRoots: skills.roots,

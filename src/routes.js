@@ -10,8 +10,9 @@
 
 import { sendJson, readJsonBody, sameOrigin, errorMessage } from './util.js'
 import { ROUTE_BASE } from './util.js'
-import { scanExperts, installExpert, uninstallExpert, avatarBytesFor } from './experts.js'
+import { installExpert, uninstallExpert, avatarBytesFor } from './experts.js'
 import { scanSkills, readSkillDetail, setSkillFlags, importSkill, removeSkill, createSkill } from './skills.js'
+import { connectorIconFor, connectorSpecFor } from './connector-catalog.js'
 
 const MAX_BODY = 65536
 
@@ -20,6 +21,8 @@ const GET_ROUTES = new Set([
   '/api/state',
   '/api/expert-avatar',
   '/api/skill-detail',
+  '/api/connector-catalog',
+  '/api/connector-icon',
 ])
 
 /** Mutating endpoints (same-origin POST only). */
@@ -37,6 +40,7 @@ const POST_ROUTES = new Set([
   '/api/connectors/import',
   '/api/connectors/tools',
   '/api/connectors/call',
+  '/api/connectors/install-catalog',
 ])
 
 function notFound(response) {
@@ -121,16 +125,56 @@ export function mountRoutes(options) {
     if (method === 'GET' && path === '/api/expert-avatar') {
       const key = queryOf(request).get('id') ?? ''
       try {
-        const bytes = await avatarBytesFor({ catalog: await state.expertsCatalog(), key })
+        const bytes = await avatarBytesFor({
+          catalog: await state.expertsCatalog(),
+          key,
+          dshHome: state.dshHome,
+        })
         if (bytes === undefined) {
           notFound(response)
           return
         }
         response.writeHead(200, {
-          'cache-control': 'private, max-age=60',
-          'content-type': 'image/png',
+          'cache-control': 'private, max-age=600',
+          'content-type': bytes.contentType ?? 'image/png',
         })
-        response.end(bytes)
+        response.end(bytes.bytes)
+      } catch (error) {
+        fail(response, 500, 'exception', errorMessage(error))
+      }
+      return
+    }
+
+    if (method === 'GET' && path === '/api/connector-catalog') {
+      try {
+        const catalog = await state.connectorCatalog()
+        const installed = new Set((await store.list()).map(function (item) { return item.id }))
+        const connectors = catalog.connectors.map(function (item) {
+          return Object.assign({}, item, { installed: installed.has(item.id) })
+        })
+        sendJson(response, 200, {
+          ok: true,
+          value: { connectors, root: catalog.root, found: catalog.found },
+        })
+      } catch (error) {
+        fail(response, 500, 'exception', errorMessage(error))
+      }
+      return
+    }
+
+    if (method === 'GET' && path === '/api/connector-icon') {
+      const id = queryOf(request).get('id') ?? ''
+      try {
+        const icon = await connectorIconFor({ workbuddyHome: state.workbuddyHome, id })
+        if (icon === undefined) {
+          notFound(response)
+          return
+        }
+        response.writeHead(200, {
+          'cache-control': 'private, max-age=3600',
+          'content-type': icon.contentType,
+        })
+        response.end(icon.bytes)
       } catch (error) {
         fail(response, 500, 'exception', errorMessage(error))
       }
@@ -271,6 +315,17 @@ export function mountRoutes(options) {
       await mutate(response, async function () {
         const result = await store.importFromWorkbuddy()
         return { ok: true, value: result }
+      })
+      return
+    }
+    if (path === '/api/connectors/install-catalog') {
+      await mutate(response, async function () {
+        const id = String(body.id ?? '')
+        const spec = await connectorSpecFor({ workbuddyHome: state.workbuddyHome, id })
+        if (spec.ok !== true) return { ok: false, code: spec.code, message: spec.message }
+        const result = await store.upsert(spec.spec)
+        await runtime.drop(id)
+        return result.ok ? { ok: true, value: result } : result
       })
       return
     }

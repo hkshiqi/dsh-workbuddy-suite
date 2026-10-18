@@ -96,6 +96,27 @@ window.__ModuleLoader__.load({
         expertsHint: '专家来自 WorkBuddy 市场目录、内置精选与 DSH 专家目录；安装后写进 ~/.dsh/experts。',
         warnings: '提示',
         failed: '操作失败',
+        detail: '详情',
+        fullText: '展开完整介绍',
+        profession: '专长',
+        category: '分类',
+        quickPrompts: '常用提问',
+        descriptionEn: 'English',
+        catalog: 'WorkBuddy 连接器目录',
+        installedConnectors: '已安装连接器',
+        customConnector: '自定义连接器',
+        installConnector: '安装',
+        installingConnector: '安装中…',
+        unavailable: '无直连地址',
+        noServerHint: '这个连接器没有可直接使用的 MCP 服务地址，只提供说明与技能，不能直接接入。',
+        examples: '示例问法',
+        catalogEmpty: '没有匹配的连接器。',
+        catalogMissing: '没有找到 WorkBuddy 连接器目录（打开一次 WorkBuddy 的「连接器」页即可下载）。',
+        catalogCount: '个连接器',
+        connectFailed: '连接失败',
+        searchCatalog: '搜索连接器',
+        tutorialServer: '服务名',
+        allCategories: '分类',
       },
       en: {
         nav: 'WorkBuddy Experts · Skills · Connectors',
@@ -167,6 +188,27 @@ window.__ModuleLoader__.load({
         expertsHint: 'Experts come from the WorkBuddy marketplace, the bundled curated set and the DSH expert roots.',
         warnings: 'Notes',
         failed: 'Failed',
+        detail: 'Details',
+        fullText: 'Show full description',
+        profession: 'Profession',
+        category: 'Category',
+        quickPrompts: 'Typical tasks',
+        descriptionEn: 'English',
+        catalog: 'WorkBuddy connector catalog',
+        installedConnectors: 'Installed connectors',
+        customConnector: 'Custom connector',
+        installConnector: 'Install',
+        installingConnector: 'Installing…',
+        unavailable: 'No endpoint',
+        noServerHint: 'This connector ships no usable MCP endpoint - only its description and skills.',
+        examples: 'Example prompts',
+        catalogEmpty: 'No matching connector.',
+        catalogMissing: 'The WorkBuddy connector catalog was not found on this machine.',
+        catalogCount: 'connectors',
+        connectFailed: 'Connection failed',
+        searchCatalog: 'Search connectors',
+        tutorialServer: 'Server',
+        allCategories: 'Category',
       },
     }
 
@@ -268,6 +310,25 @@ window.__ModuleLoader__.load({
       '.wbs-shell{width:min(1120px,100%);display:flex;flex-direction:column;border-radius:18px;background:var(--dsw-alias-bg-layer-1,#fff);border:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.24));box-shadow:0 32px 80px -24px rgba(0,0,0,.5);overflow:hidden}',
       '.wbs-shell-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.18))}',
       '.wbs-shell-body{padding:16px;overflow:auto}',
+      // --- catalog redesign -------------------------------------------------
+      '.wbs-avatar{width:44px;height:44px;flex:0 0 44px;border-radius:12px;object-fit:cover;background:var(--dsw-alias-bg-layer-3,rgba(128,128,128,.16));display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:600;opacity:.9;box-shadow:0 1px 2px rgba(0,0,0,.08)}',
+      '.wbs-avatar-lg{width:56px;height:56px;flex:0 0 56px;border-radius:14px;font-size:20px}',
+      '.wbs-icon{width:40px;height:40px;flex:0 0 40px;border-radius:11px;object-fit:contain;background:var(--dsw-alias-bg-layer-3,rgba(128,128,128,.13));padding:5px}',
+      '.wbs-card{cursor:pointer}',
+      '.wbs-card[data-flat="1"]{cursor:default}',
+      '.wbs-card-desc{font-size:12px;line-height:1.6;opacity:.72;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}',
+      '.wbs-card-desc[data-clamp="3"]{-webkit-line-clamp:3}',
+      '.wbs-desc-full{font-size:13px;line-height:1.75;white-space:pre-wrap;word-break:break-word}',
+      '.wbs-desc-full[data-lang="1"]{opacity:.62;font-size:12.5px;border-top:1px dashed var(--dsw-alias-border-l2,rgba(128,128,128,.24));padding-top:10px}',
+      '.wbs-sec{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:12px;font-weight:600;opacity:.75}',
+      '.wbs-sec-line{flex:1;height:1px;background:var(--dsw-alias-border-l2,rgba(128,128,128,.2))}',
+      '.wbs-plus{appearance:none;border:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.3));background:transparent;color:inherit;width:26px;height:26px;border-radius:8px;font-size:15px;line-height:1;cursor:pointer;flex:0 0 auto;transition:background .16s cubic-bezier(.2,.7,.2,1),transform .16s}',
+      '.wbs-plus:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(128,128,128,.14));transform:scale(1.06)}',
+      '.wbs-plus[data-done="1"]{opacity:.4;cursor:default;transform:none}',
+      '.wbs-badge{font-size:10.5px;padding:2px 6px;border-radius:5px;background:var(--dsw-alias-bg-layer-3,rgba(128,128,128,.14));opacity:.7;white-space:nowrap}',
+      '.wbs-id{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;opacity:.55}',
+      '.wbs-kv{display:grid;grid-template-columns:88px 1fr;gap:6px 10px;font-size:12.5px;line-height:1.6}',
+      '.wbs-kv-k{opacity:.55}',
     ].join('')
 
     function ensureStyle() {
@@ -395,52 +456,151 @@ window.__ModuleLoader__.load({
     }
 
 
+    /* ---------- shared bits ---------- */
+
+    function initialsOf(name) {
+      var text = String(name === undefined || name === null ? '' : name).trim()
+      return text === '' ? '?' : text.slice(0, 1).toUpperCase()
+    }
+
+    function Avatar(props) {
+      var cls = 'wbs-avatar' + (props.size === 'lg' ? ' wbs-avatar-lg' : '')
+      var src = props.src
+      if (src !== undefined && src !== null && src !== '') {
+        return h('img', { className: cls, src: src, alt: '', loading: 'lazy' })
+      }
+      return h('div', { className: cls }, initialsOf(props.name))
+    }
+
+    function Icon(props) {
+      var src = props.src
+      if (src !== undefined && src !== null && src !== '') {
+        return h('img', { className: 'wbs-icon', src: src, alt: '', loading: 'lazy' })
+      }
+      return h('div', { className: 'wbs-icon', style: { display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', fontWeight: 600 } }, initialsOf(props.name))
+    }
+
+    function Section(props) {
+      return h('div', { className: 'wbs-sec' },
+        h('span', null, props.label),
+        h('span', { className: 'wbs-sec-line' }),
+        props.extra ? h('span', { className: 'wbs-muted' }, props.extra) : null)
+    }
+
+    function Desc(props) {
+      var text = props.text === undefined || props.text === null || props.text === '' ? '—' : String(props.text)
+      return h('div', {
+        className: 'wbs-card-desc',
+        'data-clamp': props.clamp === 3 ? '3' : undefined,
+        title: text,
+      }, text)
+    }
+
+    /** Card-level click that ignores clicks which landed on a button inside. */
+    function cardClick(onOpen) {
+      return function (event) {
+        var target = event.target
+        if (target !== null && target !== undefined && typeof target.closest === 'function' && target.closest('button') !== null) return
+        onOpen()
+      }
+    }
+
     /* ---------- experts pane ---------- */
 
     function avatarOf(expert) {
-      if (expert.avatarUrl !== undefined) {
-        return h('img', { className: 'wbs-avatar', src: expert.avatarUrl, alt: '', loading: 'lazy' })
-      }
-      var letter = String(expert.name || expert.id || '?').slice(0, 1).toUpperCase()
-      return h('div', { className: 'wbs-avatar' }, letter)
+      return h(Avatar, { src: expert.avatarUrl, name: expert.name })
     }
 
     function ExpertCard(props) {
       var expert = props.expert
-      return h('div', { className: 'wbs-card' },
+      return h('div', { className: 'wbs-card', onClick: cardClick(function () { props.onDetail(expert) }) },
         h('div', { className: 'wbs-card-top' },
           avatarOf(expert),
-          h('div', { className: 'wbs-col', style: { gap: '2px', minWidth: 0 } },
-            h('div', { className: 'wbs-card-name' }, expert.name,
+          h('div', { className: 'wbs-col', style: { gap: '2px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name' },
+              expert.name,
               expert.kind === 'team' ? h('span', { className: 'wbs-tag', style: { marginLeft: '6px' } }, t('teamTag')) : null),
-            expert.profession !== '' && expert.profession !== undefined
+            expert.profession !== undefined && expert.profession !== ''
               ? h('div', { className: 'wbs-muted' }, expert.profession)
               : null)),
-        h('div', { className: 'wbs-card-desc', title: expert.description }, expert.description || '—'),
+        h(Desc, { text: expert.description, clamp: 3 }),
         h(Tags, { items: expert.tags }),
         h('div', { className: 'wbs-card-foot' },
           expert.installed
             ? h(Btn, { size: 'sm', kind: 'danger', disabled: props.busy, onClick: function () { props.onUninstall(expert) } }, t('uninstall'))
             : h(Btn, { size: 'sm', kind: 'primary', disabled: props.busy, onClick: function () { props.onInstall(expert) } },
               props.busy ? t('installing') : t('install')),
-          expert.installed ? h('span', { className: 'wbs-muted' }, t('installedTag')) : null,
           h('div', { className: 'wbs-grow' }),
-          h(Btn, { size: 'sm', onClick: function () { props.onPreview(expert) } }, t('preview'))))
+          h(Btn, { size: 'sm', onClick: function () { props.onDetail(expert) } }, t('detail'))))
+    }
+
+    function ExpertDetail(props) {
+      var expert = props.expert
+      var en = expert.descriptionEn !== undefined && expert.descriptionEn !== '' && expert.descriptionEn !== expert.description ? expert.descriptionEn : ''
+      var prompts = expert.quickPrompts || []
+      var skills = expert.skills || []
+      return h(Modal, {
+        title: expert.name,
+        onClose: props.onClose,
+        footer: h('div', { className: 'wbs-row' },
+          h(Btn, { onClick: props.onClose }, t('close')),
+          expert.installed
+            ? h(Btn, { kind: 'danger', disabled: props.busy, onClick: function () { props.onUninstall(expert) } }, t('uninstall'))
+            : h(Btn, { kind: 'primary', disabled: props.busy, onClick: function () { props.onInstall(expert) } },
+              props.busy ? t('installing') : t('install'))),
+      },
+        h('div', { className: 'wbs-row', style: { gap: '12px', alignItems: 'flex-start' } },
+          h(Avatar, { src: expert.avatarUrl, name: expert.name, size: 'lg' }),
+          h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name', style: { fontSize: '15px' } },
+              expert.name,
+              expert.kind === 'team' ? h('span', { className: 'wbs-tag', style: { marginLeft: '6px' } }, t('teamTag')) : null),
+            expert.nameEn !== undefined && expert.nameEn !== '' && expert.nameEn !== expert.name
+              ? h('div', { className: 'wbs-muted' }, expert.nameEn)
+              : null,
+            expert.profession !== undefined && expert.profession !== ''
+              ? h('div', { className: 'wbs-muted' }, expert.profession)
+              : null)),
+        h('div', { className: 'wbs-kv' },
+          h('div', { className: 'wbs-kv-k' }, 'ID'),
+          h('div', { className: 'wbs-id' }, expert.id),
+          expert.categoryName !== undefined && expert.categoryName !== ''
+            ? h('div', { className: 'wbs-kv-k' }, t('category'))
+            : null,
+          expert.categoryName !== undefined && expert.categoryName !== ''
+            ? h('div', null, expert.categoryName)
+            : null),
+        h('div', { className: 'wbs-desc-full' }, expert.description || '—'),
+        en === '' ? null : h('div', { className: 'wbs-desc-full', 'data-lang': '1' }, en),
+        expert.allTags !== undefined && expert.allTags.length > 0 ? h(Tags, { items: expert.allTags }) : null,
+        prompts.length === 0 ? null : h('div', { className: 'wbs-col', style: { gap: '6px' } },
+          h('div', { className: 'wbs-label' }, t('quickPrompts')),
+          h('div', { className: 'wbs-chips' }, prompts.map(function (item, index) {
+            return h('span', { className: 'wbs-tag', key: index }, item)
+          }))),
+        skills.length === 0 ? null : h('div', { className: 'wbs-col', style: { gap: '6px' } },
+          h('div', { className: 'wbs-label' }, 'Skills'),
+          h('div', { className: 'wbs-chips' }, skills.map(function (name, index) {
+            return h('span', { className: 'wbs-tag', key: index }, name)
+          }))))
     }
 
     function ExpertsPane(props) {
       var query = useState('')
       var filter = useState('all')
+      var category = useState('')
       var sort = useState('default')
       var busyId = useState('')
-      var preview = useState(null)
+      var detail = useState(null)
       var experts = props.data.experts || []
+      var categories = props.data.expertCategories || []
       var q = query[0].trim().toLowerCase()
       var filtered = useMemo(function () {
         var list = experts.filter(function (expert) {
           if (filter[0] === 'installed' && !expert.installed) return false
           if (filter[0] === 'available' && expert.installed) return false
           if (filter[0] === 'team' && expert.kind !== 'team') return false
+          if (category[0] !== '' && expert.categoryId !== category[0]) return false
           if (q === '') return true
           var hay = [expert.id, expert.name, expert.profession, expert.description].concat(expert.tags || []).join(' ').toLowerCase()
           return hay.indexOf(q) >= 0
@@ -448,8 +608,14 @@ window.__ModuleLoader__.load({
         if (sort[0] === 'name') list = list.slice().sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'zh-Hans-CN') })
         if (sort[0] === 'origin') list = list.slice().sort(function (a, b) { return String(a.origin).localeCompare(String(b.origin)) })
         return list
-      }, [experts, q, filter[0], sort[0]])
-      var counts = useMemo(function () { return { all: experts.length, installed: experts.filter(function (e) { return e.installed }).length } }, [experts])
+      }, [experts, q, filter[0], sort[0], category[0]])
+      var counts = useMemo(function () {
+        return {
+          all: experts.length,
+          installed: experts.filter(function (e) { return e.installed }).length,
+          team: experts.filter(function (e) { return e.kind === 'team' }).length,
+        }
+      }, [experts])
 
       function act(promise, id) {
         busyId[1](id)
@@ -461,6 +627,8 @@ window.__ModuleLoader__.load({
           props.onError(t('failed') + ': ' + String(error.message || error))
         })
       }
+
+      var showCategories = categories.filter(function (item) { return item.count > 0 })
 
       return h('div', { className: 'wbs-col' },
         h('div', { className: 'wbs-bar' },
@@ -485,7 +653,16 @@ window.__ModuleLoader__.load({
           h(Chip, { on: filter[0] === 'all', onClick: function () { filter[1]('all') } }, t('all') + ' ' + counts.all),
           h(Chip, { on: filter[0] === 'installed', onClick: function () { filter[1]('installed') } }, t('installed') + ' ' + counts.installed),
           h(Chip, { on: filter[0] === 'available', onClick: function () { filter[1]('available') } }, t('available')),
-          h(Chip, { on: filter[0] === 'team', onClick: function () { filter[1]('team') } }, t('teams'))),
+          h(Chip, { on: filter[0] === 'team', onClick: function () { filter[1]('team') } }, t('teams') + ' ' + counts.team)),
+        showCategories.length === 0 ? null : h('div', { className: 'wbs-chips' },
+          h(Chip, { on: category[0] === '', onClick: function () { category[1]('') } }, t('category') + ': ' + t('all')),
+          showCategories.map(function (item) {
+            return h(Chip, {
+              key: item.id,
+              on: category[0] === item.id,
+              onClick: function () { category[1](category[0] === item.id ? '' : item.id) },
+            }, item.name + ' ' + item.count)
+          })),
         h('div', { className: 'wbs-note' }, t('expertsHint')),
         filtered.length === 0
           ? h('div', { className: 'wbs-empty' }, t('emptyExperts'))
@@ -496,37 +673,19 @@ window.__ModuleLoader__.load({
                 busy: busyId[0] === expert.id,
                 onInstall: function (item) { act(post('/experts/install', { id: item.id, locale: locale.active }), item.id) },
                 onUninstall: function (item) { act(post('/experts/uninstall', { id: item.id }), item.id) },
-                onPreview: function (item) { preview[1](item) },
+                onDetail: function (item) { detail[1](item) },
               })
             })),
-        preview[0] === null ? null : h(Modal, {
-          title: preview[0].name,
-          onClose: function () { preview[1](null) },
-        },
-          h('div', { className: 'wbs-row' },
-            avatarOf(preview[0]),
-            h('div', { className: 'wbs-col', style: { gap: '2px' } },
-              h('div', { className: 'wbs-card-name' }, preview[0].name),
-              h('div', { className: 'wbs-muted' }, [preview[0].origin, preview[0].kind, preview[0].categoryId].filter(Boolean).join(' · ')))),
-          h('div', { className: 'wbs-col', style: { gap: '6px' } },
-            h('div', { className: 'wbs-label' }, 'ID'),
-            h('div', { className: 'wbs-tool-name' }, preview[0].id)),
-          h('div', { className: 'wbs-col', style: { gap: '6px' } },
-            h('div', { className: 'wbs-label' }, 'Description'),
-            h('div', { style: { lineHeight: 1.6 } }, preview[0].description || '—')),
-          h(Tags, { items: preview[0].tags }),
-          preview[0].skills !== undefined && preview[0].skills.length > 0
-            ? h('div', { className: 'wbs-col', style: { gap: '6px' } },
-                h('div', { className: 'wbs-label' }, 'Skills'),
-                h('div', { className: 'wbs-chips' }, preview[0].skills.map(function (name, index) {
-                  return h('span', { className: 'wbs-tag', key: index }, name)
-                })))
-            : null),
-      )
+        detail[0] === null ? null : h(ExpertDetail, {
+          expert: detail[0],
+          busy: busyId[0] === detail[0].id,
+          onClose: function () { detail[1](null) },
+          onInstall: function (item) { act(post('/experts/install', { id: item.id, locale: locale.active }), item.id) },
+          onUninstall: function (item) { act(post('/experts/uninstall', { id: item.id }), item.id) },
+        }))
     }
 
     /* ---------- skills pane ---------- */
-
 
     var SKILL_TEMPLATE = { name: '', description: '', scope: 'user' }
 
@@ -558,10 +717,50 @@ window.__ModuleLoader__.load({
             }))))
     }
 
+    function SkillCard(props) {
+      var skill = props.skill
+      return h('div', { className: 'wbs-card', onClick: cardClick(function () { props.onDetail(skill) }) },
+        h('div', { className: 'wbs-card-top' },
+          h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name' }, skill.name),
+            h('div', { className: 'wbs-muted' }, (t('origins')[skill.origin] || skill.origin)
+              + (skill.version ? ' · v' + skill.version : '')
+              + (skill.files ? ' · ' + skill.files + ' files' : '')))),
+        h(Desc, { text: skill.description, clamp: 3 }),
+        skill.valid === false ? h('div', { className: 'wbs-err' }, skill.problem) : null,
+        h('div', { className: 'wbs-row', style: { gap: '12px', flexWrap: 'wrap' } },
+          h('label', { className: 'wbs-switch' },
+            h('input', {
+              type: 'checkbox',
+              checked: skill.modelInvocable !== false,
+              disabled: props.busy,
+              onChange: function (event) { props.onFlag(skill, { modelInvocable: event.target.checked }) },
+            }),
+            t('modelInvocable')),
+          h('label', { className: 'wbs-switch' },
+            h('input', {
+              type: 'checkbox',
+              checked: skill.userInvocable !== false,
+              disabled: props.busy,
+              onChange: function (event) { props.onFlag(skill, { userInvocable: event.target.checked }) },
+            }),
+            t('userInvocable'))),
+        h('div', { className: 'wbs-card-foot' },
+          h(Btn, { size: 'sm', onClick: function () { props.onDetail(skill) } }, t('detail')),
+          skill.origin === 'workbuddy'
+            ? h(Btn, { size: 'sm', kind: 'primary', disabled: props.busy, onClick: function () { props.onImport(skill) } }, t('importWorkbuddy'))
+            : null,
+          h('div', { className: 'wbs-grow' }),
+          skill.managed
+            ? h(Btn, { size: 'sm', kind: 'danger', disabled: props.busy, onClick: function () { props.onRemove(skill) } }, t('removeSkill'))
+            : null))
+    }
+
     function SkillsPane(props) {
       var query = useState('')
       var origin = useState('all')
       var sort = useState('default')
+      var preview = useState(null)
       var detail = useState(null)
       var creating = useState(false)
       var busy = useState('')
@@ -582,6 +781,18 @@ window.__ModuleLoader__.load({
         post(path, body).then(function () { busy[1](''); props.onReload() })
           .catch(function (error) { busy[1](''); props.onError(String(error.message || error)) })
       }
+
+      function openDetail(skill) {
+        preview[1](skill)
+        detail[1](null)
+        api('/skill-detail?key=' + encodeURIComponent(skill.key)).then(function (value) {
+          detail[1](value)
+        }).catch(function (error) {
+          props.onError(String(error.message || error))
+        })
+      }
+
+      var shown = preview[0]
 
       return h('div', { className: 'wbs-col' },
         h('div', { className: 'wbs-bar' },
@@ -611,54 +822,36 @@ window.__ModuleLoader__.load({
         filtered.length === 0
           ? h('div', { className: 'wbs-empty' }, t('emptySkills'))
           : h('div', { className: 'wbs-grid' }, filtered.map(function (skill) {
-              return h('div', { className: 'wbs-card', key: skill.key },
-                h('div', { className: 'wbs-card-top' },
-                  h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0 } },
-                    h('div', { className: 'wbs-card-name' }, skill.name),
-                    h('div', { className: 'wbs-muted' }, (t('origins')[skill.origin] || skill.origin)
-                      + (skill.version ? ' · v' + skill.version : '')
-                      + (skill.files ? ' · ' + skill.files + ' files' : '')))),
-                h('div', { className: 'wbs-card-desc', title: skill.description }, skill.description || '—'),
-                skill.valid === false ? h('div', { className: 'wbs-err' }, skill.problem) : null,
-                h('div', { className: 'wbs-row', style: { gap: '12px', flexWrap: 'wrap' } },
-                  h('label', { className: 'wbs-switch' },
-                    h('input', {
-                      type: 'checkbox',
-                      checked: skill.modelInvocable !== false,
-                      disabled: busy[0] === skill.key,
-                      onChange: function (event) { act('/skills/flags', { key: skill.key, modelInvocable: event.target.checked }, skill.key) },
-                    }),
-                    t('modelInvocable')),
-                  h('label', { className: 'wbs-switch' },
-                    h('input', {
-                      type: 'checkbox',
-                      checked: skill.userInvocable !== false,
-                      disabled: busy[0] === skill.key,
-                      onChange: function (event) { act('/skills/flags', { key: skill.key, userInvocable: event.target.checked }, skill.key) },
-                    }),
-                    t('userInvocable'))),
-                h('div', { className: 'wbs-card-foot' },
-                  h(Btn, { size: 'sm', onClick: function () {
-                    api('/skill-detail?key=' + encodeURIComponent(skill.key)).then(function (value) { detail[1](value) })
-                      .catch(function (error) { props.onError(String(error.message || error)) })
-                  } }, t('preview')),
-                  skill.origin === 'workbuddy'
-                    ? h(Btn, { size: 'sm', kind: 'primary', disabled: busy[0] === skill.key, onClick: function () { act('/skills/import', { key: skill.key }, skill.key) } }, t('importWorkbuddy'))
-                    : null,
-                  skill.managed
-                    ? h(Btn, { size: 'sm', kind: 'danger', disabled: busy[0] === skill.key, onClick: function () {
-                        if (window.confirm(t('confirmRemove'))) act('/skills/remove', { key: skill.key }, skill.key)
-                      } }, t('removeSkill'))
-                    : null))
+              return h(SkillCard, {
+                key: skill.key,
+                skill: skill,
+                busy: busy[0] === skill.key,
+                onDetail: openDetail,
+                onFlag: function (item, flags) { act('/skills/flags', Object.assign({ key: item.key }, flags), item.key) },
+                onImport: function (item) { act('/skills/import', { key: item.key }, item.key) },
+                onRemove: function (item) {
+                  if (window.confirm(t('confirmRemove'))) act('/skills/remove', { key: item.key }, item.key)
+                },
+              })
             })),
-        detail[0] === null ? null : h(Modal, {
-          title: detail[0].folder,
-          onClose: function () { detail[1](null) },
+        shown === null ? null : h(Modal, {
+          title: shown.name,
+          onClose: function () { preview[1](null); detail[1](null) },
         },
-          h('div', { className: 'wbs-row', style: { flexWrap: 'wrap', gap: '6px' } }, (detail[0].files || []).map(function (item, index) {
-            return h('span', { className: 'wbs-tag', key: index }, (item.dir ? '▸ ' : '') + item.name)
-          })),
-          h('pre', { className: 'wbs-pre' }, detail[0].body || '')),
+          h('div', { className: 'wbs-kv' },
+            h('div', { className: 'wbs-kv-k' }, t('category')),
+            h('div', null, (t('origins')[shown.origin] || shown.origin) + (shown.version ? ' · v' + shown.version : '')),
+            h('div', { className: 'wbs-kv-k' }, 'ID'),
+            h('div', { className: 'wbs-id' }, shown.key)),
+          h('div', { className: 'wbs-desc-full' }, shown.description || '—'),
+          detail[0] !== null && detail[0].files !== undefined && detail[0].files.length > 0
+            ? h('div', { className: 'wbs-row', style: { flexWrap: 'wrap', gap: '6px' } }, detail[0].files.map(function (item, index) {
+                return h('span', { className: 'wbs-tag', key: index }, (item.dir ? '▸ ' : '') + item.name)
+              }))
+            : null,
+          detail[0] !== null && detail[0].body !== undefined && detail[0].body !== ''
+            ? h('pre', { className: 'wbs-pre' }, detail[0].body)
+            : null),
         creating[0] ? h(CreateSkillModal, {
           onClose: function () { creating[1](false) },
           onCreate: function (payload) {
@@ -669,7 +862,6 @@ window.__ModuleLoader__.load({
           },
         }) : null)
     }
-
 
     /* ---------- connectors pane ---------- */
 
@@ -721,9 +913,9 @@ window.__ModuleLoader__.load({
         })
       }
 
-      return h('div', { className: 'wbs-card' },
+      return h('div', { className: 'wbs-card', 'data-flat': '1' },
         h('div', { className: 'wbs-card-top' },
-          h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0 } },
+          h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0, flex: 1 } },
             h('div', { className: 'wbs-card-name' }, connector.name),
             h('div', { className: 'wbs-muted' }, connector.transport + (connector.command ? ' · ' + connector.command : '') + (connector.url ? ' · ' + connector.url : '')),
             connector.args !== undefined && connector.args.length > 0
@@ -764,23 +956,104 @@ window.__ModuleLoader__.load({
           h(Btn, { size: 'sm', kind: 'danger', onClick: function () { props.onDelete(connector) } }, t('delete'))))
     }
 
+    function CatalogCard(props) {
+      var item = props.item
+      var badge = item.available === false ? t('unavailable') : (item.transport === 'streamable-http' ? 'HTTP MCP' : 'stdio MCP')
+      return h('div', { className: 'wbs-card', onClick: cardClick(function () { props.onDetail(item) }) },
+        h('div', { className: 'wbs-card-top' },
+          h(Icon, { src: item.iconUrl, name: item.name }),
+          h('div', { className: 'wbs-col', style: { gap: '2px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name' }, item.name),
+            item.nameEn !== undefined && item.nameEn !== '' && item.nameEn !== item.name
+              ? h('div', { className: 'wbs-muted' }, item.nameEn)
+              : null),
+          item.installed
+            ? h('span', { className: 'wbs-badge' }, t('installedTag'))
+            : h('button', {
+                type: 'button',
+                className: 'wbs-plus',
+                'data-done': props.busy || item.available === false ? '1' : '0',
+                title: item.available === false ? t('unavailable') : t('installConnector'),
+                disabled: props.busy || item.available === false,
+                onClick: function (event) {
+                  event.stopPropagation()
+                  props.onInstall(item)
+                },
+              }, props.busy ? '…' : '+')),
+        h(Desc, { text: item.description, clamp: 3 }),
+        h('div', { className: 'wbs-row', style: { gap: '6px', flexWrap: 'wrap' } },
+          h('span', { className: 'wbs-badge' }, badge)))
+    }
+
+    function CatalogDetail(props) {
+      var item = props.item
+      var en = item.descriptionEn !== undefined && item.descriptionEn !== '' && item.descriptionEn !== item.description ? item.descriptionEn : ''
+      var examples = item.examples || []
+      return h(Modal, {
+        title: item.name,
+        onClose: props.onClose,
+        footer: h('div', { className: 'wbs-row' },
+          h(Btn, { onClick: props.onClose }, t('close')),
+          item.available === false
+            ? h('span', { className: 'wbs-muted' }, t('unavailable'))
+            : (item.installed
+                ? h('span', { className: 'wbs-muted' }, t('installedTag'))
+                : h(Btn, { kind: 'primary', disabled: props.busy, onClick: function () { props.onInstall(item) } },
+                  props.busy ? t('installingConnector') : t('installConnector')))),
+      },
+        h('div', { className: 'wbs-row', style: { gap: '12px', alignItems: 'flex-start' } },
+          h(Icon, { src: item.iconUrl, name: item.name }),
+          h('div', { className: 'wbs-col', style: { gap: '3px', minWidth: 0, flex: 1 } },
+            h('div', { className: 'wbs-card-name', style: { fontSize: '15px' } }, item.name),
+            item.nameEn !== undefined && item.nameEn !== '' && item.nameEn !== item.name
+              ? h('div', { className: 'wbs-muted' }, item.nameEn)
+              : null)),
+        h('div', { className: 'wbs-kv' },
+          h('div', { className: 'wbs-kv-k' }, 'ID'),
+          h('div', { className: 'wbs-id' }, item.id),
+          h('div', { className: 'wbs-kv-k' }, t('tutorialServer')),
+          h('div', { className: 'wbs-id' }, item.serverName || '—'),
+          item.available === false ? null : h('div', { className: 'wbs-kv-k' }, t('connectorTransport')),
+          item.available === false ? null : h('div', null, item.transport),
+          item.url !== undefined && item.url !== '' ? h('div', { className: 'wbs-kv-k' }, t('connectorUrl')) : null,
+          item.url !== undefined && item.url !== '' ? h('div', { style: { wordBreak: 'break-all' } }, item.url) : null),
+        h('div', { className: 'wbs-desc-full' }, item.description || '—'),
+        en === '' ? null : h('div', { className: 'wbs-desc-full', 'data-lang': '1' }, en),
+        item.available === false ? h('div', { className: 'wbs-note' }, t('noServerHint')) : null,
+        examples.length === 0 ? null : h('div', { className: 'wbs-col', style: { gap: '6px' } },
+          h('div', { className: 'wbs-label' }, t('examples')),
+          h('div', { className: 'wbs-chips' }, examples.map(function (text, index) {
+            return h('span', { className: 'wbs-tag', key: index }, text)
+          }))))
+    }
+
     function ConnectorsPane(props) {
       var query = useState('')
       var editing = useState(null)
       var form = useState(EMPTY_FORM)
       var busy = useState('')
+      var detail = useState(null)
+      var catalog = useLoad(function () { return api('/connector-catalog') })
       var connectors = props.data.connectors || []
       var seeds = props.data.connectorSeeds || []
+      var items = (catalog.value.data !== null && catalog.value.data !== undefined && catalog.value.data.connectors) || []
+      var installedIds = {}
+      connectors.forEach(function (connector) { installedIds[connector.id] = true })
       var q = query[0].trim().toLowerCase()
-      var filtered = connectors.filter(function (connector) {
+      var installedList = connectors.filter(function (connector) {
         if (q === '') return true
         return (connector.id + ' ' + connector.name + ' ' + connector.command + ' ' + connector.url).toLowerCase().indexOf(q) >= 0
+      })
+      var catalogList = items.filter(function (item) {
+        if (q === '') return true
+        var hay = [item.id, item.name, item.nameEn, item.description].join(' ').toLowerCase()
+        return hay.indexOf(q) >= 0
       })
 
       function act(path, body, id) {
         busy[1](id || '')
         post(path, body).then(function (value) {
-          busy[1]('')
+          busy[1](id === undefined ? '' : '')
           props.onReload()
           return value
         }).catch(function (error) {
@@ -789,14 +1062,26 @@ window.__ModuleLoader__.load({
         })
       }
 
+      function install(item) {
+        busy[1](item.id)
+        post('/connectors/install-catalog', { id: item.id }).then(function () {
+          busy[1]('')
+          props.onReload()
+          catalog.reload()
+        }).catch(function (error) {
+          busy[1]('')
+          props.onError(t('connectFailed') + ': ' + String(error.message || error))
+        })
+      }
+
       function openForm(connector) {
-        form[1](connector === undefined ? EMPTY_FORM : formOf(connector))
-        editing[1](connector === undefined ? {} : connector)
+        form[1](connector === undefined || connector === null ? EMPTY_FORM : formOf(connector))
+        editing[1](connector === undefined || connector === null ? {} : connector)
       }
 
       function save() {
         var value = form[0]
-        var args = value.argsText.split(/\r?\n/).map(function (line) { return line.trim() }).filter(function (line) { return line !== '' })
+        var args = value.argsText.split('\n').map(function (line) { return line.trim() }).filter(function (line) { return line !== '' })
         act('/connectors/upsert', {
           id: value.id.trim(),
           name: value.name.trim(),
@@ -814,7 +1099,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'wbs-bar' },
           h('input', {
             className: 'wbs-input',
-            placeholder: t('searchConnectors'),
+            placeholder: t('searchCatalog'),
             value: query[0],
             onChange: function (event) { query[1](event.target.value) },
           }),
@@ -822,17 +1107,11 @@ window.__ModuleLoader__.load({
           seeds.length > 0
             ? h(Btn, { disabled: busy[0] === 'import', onClick: function () { act('/connectors/import', {}, 'import') } }, t('importWorkbuddy') + ' (' + seeds.length + ')')
             : null,
-          h(Btn, { kind: 'primary', onClick: function () { openForm(undefined) } }, t('addConnector'))),
-        seeds.length > 0
-          ? h('div', { className: 'wbs-col', style: { gap: '6px' } },
-              h('div', { className: 'wbs-label' }, t('importWorkbuddy')),
-              h('div', { className: 'wbs-chips' }, seeds.map(function (seed) {
-                return h(Chip, { key: seed.id, static: true, on: false }, seed.name)
-              })))
-          : null,
-        filtered.length === 0
-          ? h('div', { className: 'wbs-empty' }, t('emptyConnectors'))
-          : h('div', { className: 'wbs-grid' }, filtered.map(function (connector) {
+          h(Btn, { kind: 'primary', onClick: function () { openForm(undefined) } }, t('customConnector'))),
+        h(Section, { label: t('installedConnectors'), extra: String(connectors.length) }),
+        installedList.length === 0
+          ? h('div', { className: 'wbs-empty' }, q === '' ? t('emptyConnectors') : t('catalogEmpty'))
+          : h('div', { className: 'wbs-grid' }, installedList.map(function (connector) {
               return h(ConnectorCard, {
                 key: connector.id,
                 connector: connector,
@@ -843,6 +1122,35 @@ window.__ModuleLoader__.load({
                 },
               })
             })),
+        h(Section, {
+          label: t('catalog'),
+          extra: catalog.value.busy
+            ? t('loading')
+            : (String(items.length) + ' ' + t('catalogCount')),
+        }),
+        catalog.value.error !== ''
+          ? h('div', { className: 'wbs-err' }, catalog.value.error)
+          : null,
+        catalog.value.data !== null && catalog.value.data !== undefined && catalog.value.data.found === false
+          ? h('div', { className: 'wbs-note' }, t('catalogMissing'))
+          : null,
+        catalogList.length === 0
+          ? h('div', { className: 'wbs-empty' }, catalog.value.busy ? t('loading') : t('catalogEmpty'))
+          : h('div', { className: 'wbs-grid' }, catalogList.map(function (item) {
+              return h(CatalogCard, {
+                key: item.key,
+                item: Object.assign({}, item, { installed: installedIds[item.id] === true }),
+                busy: busy[0] === item.id,
+                onInstall: install,
+                onDetail: function (value) { detail[1](value) },
+              })
+            })),
+        detail[0] === null ? null : h(CatalogDetail, {
+          item: Object.assign({}, detail[0], { installed: installedIds[detail[0].id] === true }),
+          busy: busy[0] === detail[0].id,
+          onClose: function () { detail[1](null) },
+          onInstall: install,
+        }),
         editing[0] === null ? null : h(Modal, {
           title: editing[0].id === undefined ? t('addConnector') : t('editConnector'),
           onClose: function () { editing[1](null) },
@@ -885,8 +1193,7 @@ window.__ModuleLoader__.load({
                 h('div', { className: 'wbs-label' }, t('connectorUrl')),
                 h('input', { className: 'wbs-input', value: form[0].url, placeholder: 'https://example.com/mcp', onChange: function (event) {
                   form[1](Object.assign({}, form[0], { url: event.target.value }))
-                } }))),
-      )
+                } }))))
     }
 
     /* ---------- root ---------- */

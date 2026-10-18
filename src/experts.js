@@ -1,15 +1,18 @@
 /**
- * Expert catalog: one merged view over four sources.
+ * Expert catalog: one merged view over the WorkBuddy marketplace plus the
+ * experts actually installed on this machine.
  *
- *   1. WorkBuddy marketplace experts  <wbHome>/plugins/marketplaces/experts/plugins/<id>
- *      (the desktop app's installed experts: .codebuddy-plugin/plugin.json +
- *      agents/*.md + skills/* - the exact shape dsh-workbuddy-expert scans)
- *   2. WorkBuddy curated seed         data/curated-experts.json (60 built-ins)
- *   3. DSH user experts               <dshHome>/experts/<id>/role.md
- *   4. DSH project experts            <cwd>/.agents/experts/<id>/role.md
+ *   1. WorkBuddy marketplace manifest  <wbHome>/app/cache/experts/manifest.json
+ *      (448 bilingual entries with CDN avatars - the catalog the desktop app
+ *      shows, categories included)
+ *   2. WorkBuddy installed experts     <wbHome>/plugins/marketplaces/experts/plugins/<id>
+ *      and <wbHome>/plugins/cache/experts/<id> (real folders with skills)
+ *   3. Curated seed                    data/curated-experts.json (fallback only)
+ *   4. DSH user experts                <dshHome>/experts/<id>/role.md
+ *   5. DSH project experts             <cwd>/.agents/experts/<id>/role.md
  *
- * Sources 3 and 4 are the install target: installing an expert materialises a
- * folder with role.md (+ avatar.png + skills/) so a DSH session can pick it up.
+ * Sources 4 and 5 are the install target: installing an expert materialises a
+ * folder with role.md (+ avatar.png + skills/) so a DSH session picks it up.
  *
  * Everything here is read-only against WorkBuddy; only the DSH expert roots
  * are written, and only for folders this plugin created (marker file).
@@ -20,6 +23,7 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { catalogAvatarBytes, loadExpertCatalog } from './expert-catalog.js'
 import { mapLimit, tryRealpath, tryStat } from './util.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -214,6 +218,7 @@ async function readExpertFolder(folder, origin) {
       kind: asString(meta.expertType) === 'team' || team.leadAgent !== undefined ? 'team' : 'expert',
       teamSize: members.length > 0 ? members.length : undefined,
       categoryId: asString(meta.categoryId),
+      categoryName: '',
       version: asString(meta.version),
       skills,
       agentFiles,
@@ -229,7 +234,7 @@ function humanizeId(id) {
   return id.replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/[_-]+/g, ' ').trim()
 }
 
-/** Load the bundled curated seed (60 built-in WorkBuddy experts). */
+/** Load the bundled curated seed (built-in WorkBuddy experts). */
 export async function loadSeed() {
   const parsed = await readJsonFile(SEED_FILE)
   const candidates = parsed !== null && typeof parsed === 'object' && Array.isArray(parsed.candidates) ? parsed.candidates : []
@@ -249,6 +254,7 @@ export async function loadSeed() {
       origin: 'seed',
       kind: entry.type === 'expert_team' ? 'team' : 'expert',
       categoryId: '',
+      categoryName: '',
       version: '',
       skills: [],
       agentFiles: [],
@@ -277,37 +283,89 @@ export async function expertRoots(options) {
 }
 
 /**
+ * Merge folder metadata into a catalog card: the marketplace manifest has the
+ * good copy and the avatar, the folder has the real skills and version.
+ */
+function mergeFolderIntoCatalog(card, folderCard) {
+  if (folderCard.name !== '' && card.name === '') card.name = folderCard.name
+  if (card.description === '' && folderCard.description !== '') card.description = folderCard.description
+  if (card.profession === '' && folderCard.profession !== '') card.profession = folderCard.profession
+  if (card.tags.length === 0 && folderCard.tags.length > 0) card.tags = folderCard.tags
+  if (folderCard.version !== '') card.version = folderCard.version
+  if (folderCard.skills.length > 0) card.skills = folderCard.skills
+  if (folderCard.agentFiles.length > 0) card.agentFiles = folderCard.agentFiles
+  if (folderCard.homepage !== '') card.homepage = folderCard.homepage
+  if (card.__dir === undefined && folderCard.__dir !== undefined) card.__dir = folderCard.__dir
+  if (card.__avatarFile === undefined && folderCard.__avatarFile !== undefined) card.__avatarFile = folderCard.__avatarFile
+}
+
+/**
  * Scan every source into one catalog.
- * @returns {Promise<{experts: object[], warnings: string[], roots: object[]}>}
+ * @returns {Promise<{experts: object[], warnings: string[], roots: object[], categories: object[], internals: object[]}>}
  */
 export async function scanExperts(options) {
   const warnings = []
   const roots = await expertRoots(options)
   const seen = new Map()
   const cards = []
+  const folders = []
 
-  for (const root of roots) {
-    const names = await subdirsOf(root.path)
-    const scanned = await mapLimit(names, 8, async function (name) {
-      if (name.startsWith('git:')) return { warning: 'skipped "' + name + '": git-prefixed entry' }
-      return readExpertFolder(join(root.path, name), root.origin)
-    })
-    for (const result of scanned) {
-      if (result.warning !== undefined) {
-        warnings.push(root.label + ': ' + result.warning)
-        continue
-      }
-      const card = result.card
-      const existing = seen.get(card.id)
-      if (existing !== undefined) {
-        if (existing.origin === 'workbuddy' && card.origin !== 'workbuddy') existing.installedOnly = true
-        continue
-      }
+  // 1. The marketplace manifest first: it is the full catalog and the only
+  // source of avatars and categories.
+  const catalog = await loadExpertCatalog({ workbuddyHome: options.workbuddyHome })
+  if (catalog === undefined) {
+    warnings.push('未找到 WorkBuddy 专家目录缓存（' + join(options.workbuddyHome, 'app', 'cache', 'experts', 'manifest.json') + '），只显示本机已安装的专家')
+  } else {
+    for (const card of catalog.cards) {
       seen.set(card.id, card)
       cards.push(card)
     }
   }
 
+  // 2. Installed folders (workbuddy) enrich a catalog entry, or stand alone
+  // when the manifest does not know them.
+  for (const root of roots) {
+    const names = await subdirsOf(root.path)
+    const scanned = await mapLimit(names, 8, async function (name) {
+      if (name.startsWith('git:')) return { warning: 'skipped "' + name + '": git-prefixed entry', origin: root.origin }
+      const result = await readExpertFolder(join(root.path, name), root.origin)
+      result.origin = root.origin
+      result.label = root.label
+      return result
+    })
+    for (const result of scanned) {
+      if (result.warning !== undefined) {
+        warnings.push(result.label + ': ' + result.warning)
+        continue
+      }
+      const card = result.card
+      const existing = seen.get(card.id)
+      if (result.origin === 'workbuddy') {
+        if (existing !== undefined) {
+          mergeFolderIntoCatalog(existing, card)
+          continue
+        }
+        seen.set(card.id, card)
+        cards.push(card)
+        folders.push(card)
+        continue
+      }
+      // DSH user/project folders: an install of a catalog entry becomes a flag
+      // on the catalog card instead of a duplicate row.
+      if (existing !== undefined) {
+        existing.installed = true
+        existing.installedVersion = existing.installedVersion ?? card.version
+        if (existing.skills.length === 0 && card.skills.length > 0) existing.skills = card.skills
+        continue
+      }
+      card.installed = true
+      seen.set(card.id, card)
+      cards.push(card)
+      folders.push(card)
+    }
+  }
+
+  // 3. The bundled seed is a fallback: it only fills ids nothing else knows.
   for (const seed of await loadSeed()) {
     const existing = seen.get(seed.id)
     if (existing !== undefined) {
@@ -324,11 +382,15 @@ export async function scanExperts(options) {
   for (const card of cards) {
     const copy = Object.assign({}, card)
     const avatarFile = copy.__avatarFile
+    const avatarRel = copy.__avatarRel
+    const catalogKey = copy.key
     delete copy.__avatarFile
+    delete copy.__avatarRel
     delete copy.__dir
-    copy.installed = copy.origin === 'user' || copy.origin === 'project'
-    if (avatarFile !== undefined) {
-      copy.avatarUrl = API_BASE + '/expert-avatar?id=' + encodeURIComponent(copy.key)
+    copy.installed = copy.installed === true || copy.origin === 'user' || copy.origin === 'project'
+    if (avatarFile !== undefined || avatarRel !== undefined) {
+      // The route resolves the card from its key, so the key must survive.
+      copy.avatarUrl = API_BASE + '/expert-avatar?id=' + encodeURIComponent(catalogKey)
     }
     publicCards.push(copy)
   }
@@ -343,11 +405,13 @@ export async function scanExperts(options) {
     experts: publicCards,
     warnings,
     roots: roots.map(function (root) { return { path: root.path, origin: root.origin, label: root.label } }),
+    categories: catalog === undefined ? [] : catalog.categories,
+    avatarBaseUrl: catalog === undefined ? '' : (catalog.baseUrl ?? ''),
     internals: cards,
   }
 }
 
-/** Build a role.md body from a card (install payload for seed experts). */
+/** Build a role.md body from a card (install payload for catalog experts). */
 function roleMarkdown(card, locale) {
   const zh = locale !== 'en'
   const focus = card.tags.length > 0 ? card.tags.join('、') : (zh ? '通用' : 'general')
@@ -367,6 +431,12 @@ function roleMarkdown(card, locale) {
     ? '你是一位「' + card.name + '」。' + card.description
     : 'You are "' + card.name + '". ' + card.description)
   lines.push('')
+  if (Array.isArray(card.quickPrompts) && card.quickPrompts.length > 0) {
+    lines.push(zh ? '## 典型任务' : '## Typical tasks')
+    lines.push('')
+    for (const prompt of card.quickPrompts) lines.push('- ' + prompt)
+    lines.push('')
+  }
   lines.push(zh ? '## 关注领域' : '## Focus')
   lines.push('')
   lines.push('- ' + focus)
@@ -401,10 +471,29 @@ async function resolveExpertDir(options) {
   return undefined
 }
 
+/** Download one catalog avatar into the install folder, best effort. */
+async function installAvatarBytes(card, options) {
+  if (card.__avatarRel === undefined || card.__avatarRel === '') {
+    if (card.__avatarFile === undefined) return undefined
+    try {
+      return { bytes: await readFile(card.__avatarFile), contentType: 'image/png' }
+    } catch {
+      return undefined
+    }
+  }
+  return await catalogAvatarBytes({
+    dshHome: options.dshHome,
+    id: card.id,
+    rel: card.__avatarRel,
+    baseUrl: options.catalog.avatarBaseUrl ?? '',
+  })
+}
+
 /**
  * Install an expert into the DSH user experts root.
  * Copies the WorkBuddy folder when one exists; otherwise materialises a
- * role.md from the curated seed. Refuses to overwrite a folder it does not own.
+ * role.md from the catalog entry (plus its avatar). Refuses to overwrite a
+ * folder it does not own.
  */
 export async function installExpert(options) {
   const catalog = options.catalog
@@ -442,6 +531,20 @@ export async function installExpert(options) {
     await mkdir(target, { recursive: true })
     await writeFile(join(target, 'role.md'), roleMarkdown(card, locale), 'utf8')
   }
+  // Resolve the avatar into the install folder; the catalog path goes over the
+  // CDN, a marketplace folder copy already carries its own avatar.
+  const avatar = await installAvatarBytes(card, {
+    dshHome: options.dshHome,
+    catalog: catalog,
+  })
+  if (avatar !== undefined) {
+    const ext = avatar.contentType === 'image/svg+xml' ? '.svg' : '.png'
+    try {
+      await writeFile(join(target, 'avatar' + ext), avatar.bytes)
+    } catch {
+      /* the avatar is decorative; a failure must not fail the install */
+    }
+  }
   await writeFile(join(target, MARKER_FILE), JSON.stringify({
     installedBy: 'dsh-workbuddy-suite',
     id,
@@ -466,17 +569,31 @@ export async function uninstallExpert(options) {
   return { ok: true, id }
 }
 
-/** Avatar bytes for a card key (undefined when the card has none). */
+/**
+ * Avatar bytes for a card key: a local file when the expert folder has one,
+ * otherwise the marketplace CDN copy (cached under the DSH home).
+ * @returns {Promise<{bytes: Buffer, contentType: string} | undefined>}
+ */
 export async function avatarBytesFor(options) {
   const internals = options.catalog.internals
   for (const card of internals) {
     if (card.key !== options.key) continue
-    if (card.__avatarFile === undefined) return undefined
-    try {
-      return await readFile(card.__avatarFile)
-    } catch {
-      return undefined
+    if (card.__avatarFile !== undefined) {
+      try {
+        return { bytes: await readFile(card.__avatarFile), contentType: 'image/png' }
+      } catch {
+        /* fall through to the CDN */
+      }
     }
+    if (card.__avatarRel !== undefined && card.__avatarRel !== '') {
+      return await catalogAvatarBytes({
+        dshHome: options.dshHome,
+        id: card.id,
+        rel: card.__avatarRel,
+        baseUrl: options.catalog.avatarBaseUrl ?? '',
+      })
+    }
+    return undefined
   }
   return undefined
 }

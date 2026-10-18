@@ -97,6 +97,31 @@ check('tool call text', call.body.value.text === 'echo: hi', JSON.stringify(call
 const remove = await request('POST', '/dsh-workbuddy-suite/api/connectors/remove', { id: 'fixture' })
 check('remove is 200', remove.status === 200)
 
+console.log('connector catalog')
+const catalog = await request('GET', '/dsh-workbuddy-suite/api/connector-catalog')
+check('GET /api/connector-catalog is 200', catalog.status === 200, String(catalog.status))
+check('catalog lists connectors', catalog.body.ok === true && Array.isArray(catalog.body.value.connectors) && catalog.body.value.connectors.length > 0)
+check('catalog flags every entry', catalog.body.value.connectors.every(function (c) {
+  return typeof c.installed === 'boolean' && typeof c.available === 'boolean'
+}))
+const installable = catalog.body.value.connectors.filter(function (c) { return c.available })[0]
+const install = await request('POST', '/dsh-workbuddy-suite/api/connectors/install-catalog', { id: installable.id })
+check('install-catalog is 200', install.status === 200, JSON.stringify(install.body).slice(0, 200))
+const installed = await store.list()
+check('catalog install lands in the store', installed.some(function (c) { return c.id === installable.id }), JSON.stringify(installed.map(function (c) { return c.id })))
+await request('POST', '/dsh-workbuddy-suite/api/connectors/remove', { id: installable.id })
+const noServer = catalog.body.value.connectors.filter(function (c) { return !c.available })[0]
+if (noServer) {
+  const refused = await request('POST', '/dsh-workbuddy-suite/api/connectors/install-catalog', { id: noServer.id })
+  check('install-catalog refuses a serverless entry', refused.status === 400 && refused.body.error.code === 'no-server', JSON.stringify(refused.body).slice(0, 160))
+}
+const icon = await request('GET', '/dsh-workbuddy-suite/api/connector-icon?id=' + encodeURIComponent(installable.id))
+check('connector icon answers', icon.status === 200 || icon.status === 404, String(icon.status))
+const iconTraversal = await request('GET', '/dsh-workbuddy-suite/api/connector-icon?id=' + encodeURIComponent('../package.json'))
+check('icon route rejects traversal', iconTraversal.status === 404, String(iconTraversal.status))
+const avatar = await request('GET', '/dsh-workbuddy-suite/api/expert-avatar?id=nope:nope')
+check('avatar route answers 404 for an unknown expert', avatar.status === 404, String(avatar.status))
+
 await runtime.closeAll()
 dispose()
 await rm(temp, { recursive: true, force: true })

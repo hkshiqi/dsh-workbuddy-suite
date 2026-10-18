@@ -2,3 +2,12 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# stray files dropped into the working copy by other tools
+tmp-*.mjs
+%SystemDrive%/
+*.stat
+*.db
+*.dat
+*.bin
+user.config

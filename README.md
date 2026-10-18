@@ -2,9 +2,9 @@
 
 A DSH settings plugin that ports the three WorkBuddy desktop surfaces - **Experts**, **Skills** and **Connectors** - into DeepSeek Harness.
 
-- **Experts**: one catalog merged from the WorkBuddy marketplace, the 60 bundled curated experts and the DSH user/project expert roots. Search, filter, sort, preview, install and uninstall.
+- **Experts**: the official WorkBuddy expert marketplace (448 entries with real avatars, 15 categories, bilingual names and descriptions) merged with the bundled curated list and the DSH user/project expert roots. Search, category filter, sort, detail view, install and uninstall.
 - **Skills**: every DSH and Agents skill root (`<project>/.dsh/skills`, `<project>/.agents/skills`, `~/.dsh/skills`, `~/.agents/skills`) plus the WorkBuddy skill folder as an import source. Read the body, flip the model/user invocation switches, import, delete, create.
-- **Connectors**: MCP servers managed as connectors - add/edit/remove at runtime, probe the tool list, call a tool, and import everything from WorkBuddy's `mcp.json`.
+- **Connectors**: the official WorkBuddy connector catalog (409 entries with Chinese names, Chinese descriptions and official icons) is installable in one click; installed MCP servers can be added/edited/removed at runtime, probed for their tool list, called directly, and imported wholesale from WorkBuddy's `mcp.json`.
 
 No build step, no runtime dependencies: the host half is plain ESM, the client half is a hand-written `ModuleLoader` bundle.
 
@@ -42,7 +42,7 @@ Remove-Item -Recurse -Force $dst
 cmd /c mklink /J "$dst" "E:\path\to\dsh-workbuddy-suite"
 ```
 
-Host-half edits still need a DSH restart (or a disable/enable round in the plugin market, which hot-mounts the pure-insert bundle patch); client-half edits apply on a browser refresh.
+Host-half edits take effect through a disable/enable round in the plugin market (`POST /dsh-market/toggle`), which hot-mounts the pure-insert bundle patch, so no host restart is needed; client-half edits apply on a browser refresh.
 
 ### Where the panel lives
 
@@ -52,15 +52,29 @@ The **◈ WorkBuddy experts, skills, connectors** button in the sidebar footer o
 
 | | Read (read-only) | Written |
 | --- | --- | --- |
-| Experts | `<workbuddyHome>/plugins/marketplaces/experts/plugins`, `<workbuddyHome>/plugins/cache/experts`, `<dshHome>/experts`, `<projectRoot>/.agents/experts`, bundled `data/curated-experts.json` | `<dshHome>/experts/<id>` |
+| Experts | `<workbuddyHome>/app/cache/experts/manifest.json` (the official 448-entry catalog with its 15 categories), `<workbuddyHome>/plugins/marketplaces/experts/plugins`, `<workbuddyHome>/plugins/cache/experts`, `<dshHome>/experts`, `<projectRoot>/.agents/experts`, bundled `data/curated-experts.json` | `<dshHome>/experts/<id>` |
 | Skills | `<projectRoot>/.dsh/skills`, `<projectRoot>/.agents/skills`, `<dshHome>/skills`, `<agentsHome>/skills`, `<workbuddyHome>/skills` | the first four |
-| Connectors | `<dshHome>/workbuddy-suite/connectors.json`, `<workbuddyHome>/mcp.json`, `<workbuddyHome>/mcp-tool-list.json` | `connectors.json` |
+| Connectors | `<workbuddyHome>/plugins/marketplaces/workbuddy-connector-plugins-official/connectors/<id>` (`plugin.json` + `mcp.json` + `icon.*`), `<dshHome>/workbuddy-suite/connectors.json`, `<workbuddyHome>/mcp.json` | `connectors.json` |
 
 Every folder this plugin creates carries a `.dsh-workbuddy-suite.json` marker; uninstall only removes marked folders and never touches a hand-written expert or skill.
+
+## Avatars and icons: proxied on demand, cached locally
+
+The expert catalog caches only the manifest; avatars live on a CDN (`https://acc-1258344699.cos.accelerate.myqcloud.com/workbuddy/expert-marketplace/avatars/<id>.png`). The browser never talks to that CDN:
+
+- The client only asks `/api/expert-avatar?id=<key>`; the host looks for an `avatar.*` file in an installed expert folder, then in `<dshHome>/workbuddy-suite/avatar-cache/`, and only then fetches the CDN and writes the cache (4 MB cap, 20 s timeout; anything that is not an image - or any failure - becomes a 404 so the client falls back to initials).
+- Connector icons come entirely from the local marketplace folder; `/api/connector-icon?id=<id>` reads from disk and never opens a socket.
+- Avatars and icons are the **only** cacheable responses (`cache-control: private, max-age=600/3600`); every other route is `no-store`.
+
+## Chinese first
+
+Expert and connector descriptions resolve to the Chinese field first: `description.zh` -> `description_zh` -> top-level `description` (only when it contains CJK characters). The detail view also shows the English original in a smaller, dimmer, dashed-off block for comparison, but the list never shows an English-only card.
 
 ## Why connectors are not a cordis patch entry
 
 DSH's official `@deepseek-ai/dsh-mcp-client` registers MCP servers at **composition time** from the patch file, so a server added from a settings panel would need a host restart. This plugin ships a ~12KB MCP client instead (newline-delimited JSON-RPC over stdio, plus streamable HTTP with SSE) and connects at **runtime**, so panel edits take effect immediately.
+
+345 of the 409 catalog entries carry a usable MCP address; the other 64 (skill-only or legacy packages) are marked "no direct address" and their install button is disabled.
 
 ## API
 
@@ -68,12 +82,14 @@ All routes live under the `/dsh-workbuddy-suite` prefix; the client addresses th
 
 | Method | Path | Purpose |
 | --- | --- | --- |
-| GET | `/api/state` | Full snapshot of the three catalogs |
-| GET | `/api/expert-avatar?id=` | Expert avatar (the only cacheable response) |
+| GET | `/api/state` | Full snapshot of the three catalogs (including `expertCategories`) |
+| GET | `/api/connector-catalog` | The official WorkBuddy connector catalog (409 entries, each flagged `installed`) |
+| GET | `/api/expert-avatar?id=` | Expert avatar (disk cache, then CDN) |
+| GET | `/api/connector-icon?id=` | Connector icon (local catalog) |
 | GET | `/api/skill-detail?key=` | One skill's frontmatter and body |
 | POST | `/api/experts/install` / `uninstall` / `refresh` | Expert changes |
 | POST | `/api/skills/flags` / `import` / `remove` / `create` | Skill changes |
-| POST | `/api/connectors/upsert` / `remove` / `enable` / `import` | Connector changes |
+| POST | `/api/connectors/upsert` / `remove` / `enable` / `import` / `install-catalog` | Connector changes |
 | POST | `/api/connectors/tools` / `call` | Probe tools / call one |
 
 Mutating routes accept **same-origin POST only**: the Host must name loopback, `sec-fetch-site: cross-site` is refused, JSON bodies are capped at 64 KiB, responses are `no-store`, and only one mutation runs at a time (a concurrent one gets 409).
@@ -81,16 +97,18 @@ Mutating routes accept **same-origin POST only**: the Host must name loopback, `
 ## Layout
 
 ```
-src/index.js       host entry: service injection, command, route mount
-src/state.js       TTL cache + the three-catalog snapshot
-src/experts.js     expert scan / install / uninstall / avatar
-src/skills.js      skill scan / frontmatter read-write / import / create
-src/mcp.js         dependency-free MCP client (stdio + streamable HTTP)
-src/connectors.js  connector registry and runtime connection pool
-src/routes.js      HTTP surface and security layer
-client/client.js   the settings panel (ModuleLoader bundle, no build)
+src/index.js             host entry: service injection, command, route mount
+src/state.js             TTL cache + the three-catalog snapshot
+src/experts.js           expert scan / install / uninstall / avatar
+src/expert-catalog.js    WorkBuddy expert marketplace manifest + CDN avatar cache
+src/skills.js            skill scan / frontmatter read-write / import / create
+src/connector-catalog.js WorkBuddy connector catalog + icons + install specs
+src/mcp.js               dependency-free MCP client (stdio + streamable HTTP)
+src/connectors.js        connector registry and runtime connection pool
+src/routes.js            HTTP surface and security layer
+client/client.js         the settings panel (ModuleLoader bundle, no build)
 data/curated-experts.json  the 60 bundled WorkBuddy experts
-test/smoke.mjs     smoke test (includes a fixture MCP server)
+test/smoke.mjs           smoke test (includes a fixture MCP server)
 ```
 
 ## Development

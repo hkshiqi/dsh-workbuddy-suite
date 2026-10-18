@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url'
 import { scanExperts } from '../src/experts.js'
 import { scanSkills } from '../src/skills.js'
 import { ConnectorStore, ConnectorRuntime } from '../src/connectors.js'
+import { scanConnectorCatalog, connectorSpecFor, connectorIconFor } from '../src/connector-catalog.js'
 import { resolveAgentsHome, resolveDshHome, resolveWorkbuddyHome } from '../src/util.js'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -44,7 +45,13 @@ console.log('  projectRoot    ' + projectRoot)
 console.log('experts')
 const experts = await scanExperts({ dshHome, workbuddyHome, projectRoot })
 check('expert catalog is non-empty', experts.experts.length > 0, String(experts.experts.length))
-check('seed experts are present', experts.experts.some(function (e) { return e.origin === 'seed' }))
+check('catalog experts are present', experts.experts.some(function (e) { return e.origin === 'catalog' }))
+check('every catalog card is Chinese', experts.experts.every(function (e) {
+  return e.origin !== 'catalog' || /[\u3400-\u9fff]/.test(String(e.description))
+}))
+check('every card exposes an avatar url when it has one', experts.experts.every(function (e) {
+  return e.avatarUrl === undefined || typeof e.avatarUrl === 'string'
+}))
 check('every card has an id', experts.experts.every(function (e) { return typeof e.id === 'string' && e.id !== '' }))
 check('every card has a name', experts.experts.every(function (e) { return typeof e.name === 'string' && e.name !== '' }))
 check('no internal field leaks', experts.experts.every(function (e) {
@@ -103,6 +110,31 @@ try {
 } finally {
   await rm(temp, { recursive: true, force: true })
 }
+
+console.log('connector catalog')
+const catalog = await scanConnectorCatalog({ workbuddyHome })
+check('catalog is non-empty', catalog.found === true && catalog.connectors.length > 0, String(catalog.connectors.length))
+check('every catalog card has a name', catalog.connectors.every(function (c) {
+  return typeof c.name === 'string' && c.name !== ''
+}))
+check('every catalog card has a Chinese description', catalog.connectors.every(function (c) {
+  return /[\u3400-\u9fff]/.test(String(c.description))
+}))
+check('availability is declared', catalog.connectors.every(function (c) {
+  return typeof c.available === 'boolean'
+}))
+const withServer = catalog.connectors.filter(function (c) { return c.available })
+check('at least one connector is installable', withServer.length > 0, String(withServer.length))
+const spec = await connectorSpecFor({ workbuddyHome, id: withServer[0].id })
+check('installable connector yields a spec', spec.ok === true && typeof spec.spec.id === 'string', JSON.stringify(spec).slice(0, 160))
+const noServer = catalog.connectors.find(function (c) { return c.available === false })
+if (noServer) {
+  const bad = await connectorSpecFor({ workbuddyHome, id: noServer.id })
+  check('connector without a server is refused', bad.ok === false && bad.code === 'no-server')
+}
+const icon = await connectorIconFor({ workbuddyHome, id: withServer[0].id })
+check('icon lookup answers', icon === undefined || Buffer.isBuffer(icon.bytes), String(icon && icon.contentType))
+console.log('  count ' + String(catalog.connectors.length) + ' (installable ' + String(withServer.length) + ')')
 
 console.log('')
 if (failures.length > 0) {

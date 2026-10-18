@@ -253,7 +253,8 @@ window.__ModuleLoader__.load({
       '.wbs-pre{margin:0;padding:10px;border-radius:9px;background:var(--dsw-alias-bg-layer-2,rgba(128,128,128,.07));font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-height:280px;overflow:auto}',
       '.wbs-field{display:flex;flex-direction:column;gap:5px}',
       '.wbs-label{font-size:11.5px;opacity:.62}',
-      '.wbs-switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;opacity:.8}',
+      '.wbs-switch{display:inline-flex;align-items:center;gap:6px;font-size:12px;opacity:.8;white-space:nowrap;flex:0 0 auto}',
+      '.wbs-toollist{display:flex;flex-direction:column;min-width:0}',
       '.wbs-tool{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--dsw-alias-border-l2,rgba(128,128,128,.14))}',
       '.wbs-tool:last-child{border-bottom:0}',
       '.wbs-tool-name{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}',
@@ -738,21 +739,23 @@ window.__ModuleLoader__.load({
             connector.enabled ? t('enabled') : t('disabled'))),
         connector.note !== '' ? h('div', { className: 'wbs-note' }, connector.note) : null,
         state.open
-          ? h('div', { className: 'wbs-col', style: { gap: '6px' } },
+          ? h(Modal, {
+              title: connector.name + ' · ' + (state.tools === null || state.tools === undefined ? t('probing') : state.tools.length + ' tools'),
+              onClose: function () { set({ open: false, busy: false, tools: null, error: '', result: '' }) },
+            },
               state.error !== '' ? h('div', { className: 'wbs-err' }, state.error) : null,
+              state.result !== '' ? h('pre', { className: 'wbs-pre' }, state.result) : null,
               state.tools === null || state.tools === undefined
-                ? null
+                ? h('div', { className: 'wbs-empty' }, state.error === '' ? t('probing') : '')
                 : (state.tools.length === 0
                     ? h('div', { className: 'wbs-note' }, '(no tools)')
-                    : h('div', null, state.tools.map(function (tool) {
+                    : h('div', { className: 'wbs-toollist' }, state.tools.map(function (tool) {
                         return h('div', { className: 'wbs-tool', key: tool.name },
-                          h('div', { className: 'wbs-col', style: { gap: '1px', minWidth: 0 } },
+                          h('div', { className: 'wbs-col', style: { gap: '1px', minWidth: 0, flex: 1 } },
                             h('div', { className: 'wbs-tool-name' }, tool.name),
                             h('div', { className: 'wbs-muted', style: { display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' } }, tool.description || '')),
-                          h('div', { className: 'wbs-grow' }),
                           h(Btn, { size: 'sm', disabled: state.busy, onClick: function () { call(tool.name) } }, t('callTool')))
-                      }))),
-              state.result !== '' ? h('pre', { className: 'wbs-pre' }, state.result) : null)
+                      }))))
           : null,
         h('div', { className: 'wbs-card-foot' },
           h(Btn, { size: 'sm', disabled: state.busy, onClick: probe }, state.busy ? t('probing') : t('probe')),
